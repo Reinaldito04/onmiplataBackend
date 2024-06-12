@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-class Clients (BaseModel):
+class Propietarios (BaseModel):
     name:str
     lastName:str
     dni:str
@@ -8,4 +8,8 @@ class Clients (BaseModel):
     email:str
     birthdate :str
     phone : str 
+    address: str 
+    CodePostal : str 
+    
+   
     
