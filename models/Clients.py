@@ -1,15 +1,20 @@
 from pydantic import BaseModel
 
-class Propietarios (BaseModel):
-    name:str
-    lastName:str
-    dni:str
-    rif:str
-    email:str
-    birthdate :str
-    phone : str 
-    address: str 
-    CodePostal : str 
-    
+
+class Person(BaseModel):
+    name: str
+    lastName: str
+    dni: str
+    rif: str
+    email: str
+    birthdate: str
+    phone: str
+
+
+class Propietarios (Person):
+    address: str
+    CodePostal: str
+
+
+
    
-    

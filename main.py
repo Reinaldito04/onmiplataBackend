@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from routers.users import router as router_users
 from routers.clients import router as router_clients
+from routers.rentals import router as router_rentals
 from routers.Inmueble import router as router_inmueble
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,7 +23,7 @@ app.add_middleware(
 app.include_router(router_users)
 app.include_router(router_inmueble)
 app.include_router(router_clients)
-
+app.include_router(router_rentals)
 
 @app.get("/")
 async def root():

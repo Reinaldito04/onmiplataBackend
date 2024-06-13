@@ -14,11 +14,12 @@ async def get_inmuebles():
     
     inmuebles_list =[]
     for inmueble in inmuebles:
-        cursor.execute("SELECT Nombre, Apellido FROM Propietarios WHERE ID = ?", (inmueble[3],))
+        cursor.execute("SELECT Nombre, Apellido,DNI FROM Propietarios WHERE ID = ?", (inmueble[3],))
         propietario = cursor.fetchone()
         
         nombrePropietario = propietario[0]
         apellidoPropietario = propietario[1]
+        CedulaPropietario = propietario[2]
         
         
         
@@ -27,7 +28,8 @@ async def get_inmuebles():
             "Direccion":inmueble[1],
             "Tipo": inmueble[2],
             "NombrePropietario": nombrePropietario,
-            "ApellidoPropietario":apellidoPropietario
+            "ApellidoPropietario":apellidoPropietario,
+            "CedulaPropietario" : CedulaPropietario
         }
         inmuebles_list.append(inmuebles_dist)
         
