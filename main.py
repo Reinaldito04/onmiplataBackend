@@ -4,7 +4,7 @@ from routers.clients import router as router_clients
 from routers.rentals import router as router_rentals
 from routers.Inmueble import router as router_inmueble
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.staticfiles import StaticFiles
 app = FastAPI()
 
 
@@ -12,7 +12,7 @@ origins = [
     "http://localhost:5173",  # Reemplaza con la URL de tu frontend
     # Agrega otras URLs de frontend si es necesario
 ]
-
+app.mount("/media", StaticFiles(directory="media"), name="media")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
