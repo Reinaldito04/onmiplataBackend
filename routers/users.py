@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter,HTTPException
 from pydantic import BaseModel
 from db.db import create_connection
 from models.Auth import LoginCredentials, RegisterUser
@@ -11,11 +11,18 @@ router = APIRouter()
 async def login(credentials: LoginCredentials):
     conn = create_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE Username=? AND Password=?",
+    cur.execute("SELECT Username, Password, Tipo FROM users WHERE Username=? AND Password=?",
                 (credentials.username, credentials.password))
     user = cur.fetchone()
     conn.close()
-    return {"message": "Login successful"}
+    
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    usuario = user[0]
+    tipo = user[2]
+    
+    return {"message": "Login successful", "username": usuario, "type": tipo}
 
 
 @router.post("/register")

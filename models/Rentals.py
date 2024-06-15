@@ -25,3 +25,6 @@ class ContractDetails(BaseModel):
     InmuebleDireccion: str
     FechaInicio: str
     FechaFin: str
+    ContratoID:int
+    CedulaPropietario : str 
+    CedulaCliente : str 

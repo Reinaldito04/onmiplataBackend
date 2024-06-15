@@ -3,6 +3,7 @@ from routers.users import router as router_users
 from routers.clients import router as router_clients
 from routers.rentals import router as router_rentals
 from routers.Inmueble import router as router_inmueble
+from routers.Payments import router as router_payments
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 app = FastAPI()
@@ -24,6 +25,7 @@ app.include_router(router_users)
 app.include_router(router_inmueble)
 app.include_router(router_clients)
 app.include_router(router_rentals)
+app.include_router(router_payments)
 
 @app.get("/")
 async def root():

@@ -20,7 +20,11 @@ def get_contracts():
         Propietarios.Apellido AS PropietarioApellido,
         Inmuebles.Direccion AS InmuebleDireccion,
         Contratos.FechaInicio,
-        Contratos.FechaFin
+        Contratos.FechaFin,
+        Contratos.ID,
+        Propietarios.DNI AS PropietarioDNI,
+        Clientes.DNI AS ClienteDNI
+        
     FROM 
         Contratos
     INNER JOIN 
@@ -46,7 +50,12 @@ def get_contracts():
             PropietarioApellido=row[3],
             InmuebleDireccion=row[4],
             FechaInicio=row[5],
-            FechaFin=row[6]
+            FechaFin=row[6],
+            ContratoID = row[7],
+            CedulaPropietario = row[8],
+            CedulaCliente = row[9]
+            
+            
         )
         contracts.append(contract)
 

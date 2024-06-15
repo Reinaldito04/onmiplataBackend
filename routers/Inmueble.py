@@ -10,10 +10,12 @@ import shutil
 
 
 router = APIRouter()
-UPLOAD_DIRECTORY = "./media"  # Directorio donde se guardarán las imágenes
 
 # ImagenEndpoint
 MEDIA_DIRECTORY = "./media"
+
+
+
 
 
 class ImageInmueble:
