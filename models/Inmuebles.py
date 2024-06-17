@@ -5,6 +5,7 @@ class Inmueble(BaseModel):
     Direccion: str
     Tipo: str
     CedulaPropietario: str
+    Descripcion: str
 
 
 class ImageInmueble(BaseModel):

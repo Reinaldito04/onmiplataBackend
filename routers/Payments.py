@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException,Query
+from fastapi import APIRouter, HTTPException, Query
 from db.db import create_connection
-from models.Payments import DetailsPagos,Pagos
+from models.Payments import DetailsPagos, Pagos
 from typing import List
 
 router = APIRouter()
@@ -11,7 +11,7 @@ def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal
     try:
         conn = create_connection()
         cursor = conn.cursor()
-        
+
         if type == "Empresa":
             consulta = """
             SELECT Clientes.Nombre, Clientes.Apellido, Clientes.DNI,
@@ -24,23 +24,21 @@ def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal
             payment_type = 'Empresa'
         elif type == "Personal":
             consulta = """
-            SELECT Clientes.Nombre, Clientes.Apellido, Clientes.DNI,
+            SELECT Propietarios.Nombre, Propietarios.Apellido, Propietarios.DNI,
                    Pagos.Monto, Pagos.FechaPago, Pagos.ContratoID,Pagos.ID
             FROM Contratos
-            INNER JOIN Clientes ON Contratos.ClienteID = Clientes.ID
+            INNER JOIN Propietarios ON Contratos.PropietarioID = Propietarios.ID
             INNER JOIN Pagos ON Pagos.ContratoID = Contratos.ID
             WHERE Pagos.Para = 'Personal';
             """
             payment_type = 'Personal'
         else:
-            raise HTTPException(status_code=400, detail="Tipo de pago no válido")
-        
+            raise HTTPException(
+                status_code=400, detail="Tipo de pago no válido")
+
         cursor.execute(consulta)
         result = cursor.fetchall()
-        
-        if not result:
-            raise HTTPException(status_code=404, detail="No pagos found")
-        
+
         pagos = []
         for row in result:
             pago = DetailsPagos(
@@ -54,12 +52,19 @@ def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal
                 ID=row[6]
             )
             pagos.append(pago)
-        
+
         conn.close()
+
+        # Devuelve un array vacío si no hay resultados
+        if not pagos:
+            return []
+
         return pagos
+
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
     finally:
         conn.close()
 

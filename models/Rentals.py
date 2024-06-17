@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
 class Rentals(BaseModel):
@@ -28,3 +29,13 @@ class ContractDetails(BaseModel):
     ContratoID:int
     CedulaPropietario : str 
     CedulaCliente : str 
+    
+class NextPayment(BaseModel):
+    ContratoID: int
+    PrimerPago: str
+    SiguientePago: str
+    Estado: str
+    Monto: Optional[float]
+    ContratoID: int
+    PrimerPago: str
+    SiguientePago: str

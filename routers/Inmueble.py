@@ -104,6 +104,7 @@ async def get_inmuebles():
             "ID": inmueble[0],
             "Direccion": inmueble[1],
             "Tipo": inmueble[2],
+            "Descripcion":inmueble[4],
             "NombrePropietario": nombre_propietario,
             "ApellidoPropietario": apellido_propietario,
             "CedulaPropietario": cedula_propietario,
@@ -131,8 +132,8 @@ async def add_inmueble(inmueble: Inmueble):
         raise HTTPException(status_code=404, detail="Propietario not found")
 
     cursor.execute(
-        "INSERT INTO Inmuebles (Direccion, Tipo, PropietarioID) VALUES (?, ?, ?)",
-        (inmueble.Direccion, inmueble.Tipo, propietario[0])
+        "INSERT INTO Inmuebles (Direccion, Tipo, PropietarioID,Descripcion) VALUES (?, ?, ?,?)",
+        (inmueble.Direccion, inmueble.Tipo, propietario[0],inmueble.Descripcion)
     )
     conn.commit()
     conn.close()
