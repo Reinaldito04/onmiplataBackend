@@ -7,7 +7,69 @@ from datetime import datetime,timedelta
 
 router = APIRouter()
 
+@router.get("/contracts-expiring", response_model=List[ContractDetails])
+async def get_contracts_expiring():
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
 
+        current_date = datetime.now()
+        start_of_month = current_date.replace(day=1)
+        end_of_month = (start_of_month + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+
+        query = """
+        SELECT 
+            Clientes.Nombre AS ClienteNombre,
+            Clientes.Apellido AS ClienteApellido,
+            Propietarios.Nombre AS PropietarioNombre,
+            Propietarios.Apellido AS PropietarioApellido,
+            Inmuebles.Direccion AS InmuebleDireccion,
+            Contratos.FechaInicio,
+            Contratos.FechaFin,
+            Contratos.ID,
+            Propietarios.DNI AS PropietarioDNI,
+            Clientes.DNI AS ClienteDNI
+        FROM 
+            Contratos
+        INNER JOIN 
+            Clientes ON Contratos.ClienteID = Clientes.ID
+        INNER JOIN 
+            Propietarios ON Contratos.PropietarioID = Propietarios.ID
+        INNER JOIN 
+            Inmuebles ON Contratos.InmuebleID = Inmuebles.ID
+        WHERE 
+            Contratos.FechaFin BETWEEN ? AND ?
+        """
+        
+        cursor.execute(query, (start_of_month.strftime('%Y-%m-%d'), end_of_month.strftime('%Y-%m-%d')))
+        result = cursor.fetchall()
+
+        if not result:
+            raise HTTPException(status_code=404, detail="No contracts expiring this month")
+
+        contracts = []
+        for row in result:
+            contract = ContractDetails(
+                ClienteNombre=row[0],
+                ClienteApellido=row[1],
+                PropietarioNombre=row[2],
+                PropietarioApellido=row[3],
+                InmuebleDireccion=row[4],
+                FechaInicio=row[5],
+                FechaFin=row[6],
+                ContratoID=row[7],
+                CedulaPropietario=row[8],
+                CedulaCliente=row[9]
+            )
+            contracts.append(contract)
+
+        return contracts
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        conn.close()
 @router.get("/next-payments", response_model=List[NextPayment])
 def get_next_payments():
     try:
@@ -18,7 +80,7 @@ def get_next_payments():
         cursor.execute("""
             SELECT Contratos.ID, Contratos.FechaPrimerPago, Clientes.Nombre AS ClienteNombre, Clientes.Apellido AS ClienteApellido,
                    Inmuebles.Direccion AS InmuebleDireccion, Propietarios.Nombre AS PropietarioNombre,
-                   Pagos.FechaPago AS UltimoPago, Pagos.Monto AS MontoUltimoPago
+                   Pagos.FechaPago AS UltimoPago, Pagos.Monto AS MontoUltimoPago,Propietarios.Apellido AS PropietarioApellido
             FROM Contratos
             INNER JOIN Clientes ON Contratos.ClienteID = Clientes.ID
             INNER JOIN Inmuebles ON Contratos.InmuebleID = Inmuebles.ID
@@ -62,6 +124,7 @@ def get_next_payments():
                 ClienteApellido=contrato[3],
                 InmuebleDireccion=contrato[4],
                 PropietarioNombre=contrato[5],
+                PropietarioApellido= contrato[8],
                 PrimerPago=primer_pago.strftime('%Y-%m-%d'),
                 SiguientePago=siguiente_pago.strftime('%Y-%m-%d'),
                 Estado=estado,

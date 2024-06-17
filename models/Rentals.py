@@ -39,3 +39,8 @@ class NextPayment(BaseModel):
     ContratoID: int
     PrimerPago: str
     SiguientePago: str
+    ClienteNombre:str
+    ClienteApellido:str
+    PropietarioNombre:str
+    PropietarioApellido:str
+    InmuebleDireccion : str 
