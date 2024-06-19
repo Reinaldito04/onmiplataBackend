@@ -1,11 +1,29 @@
 from fastapi import APIRouter, HTTPException
 from db.db import create_connection
 from pydantic import BaseModel
-from models.Rentals import Rentals, ContractDetails,NextPayment
+from models.Rentals import Rentals, ContractDetails,ReportData
 from typing import List
 from datetime import datetime,timedelta
-
+from reports.Contrato import generar_reporte
+import os
 router = APIRouter()
+
+@router.post("/generate-contratReport")
+def generate_report(report_data : ReportData):
+    try:
+        template_path = 'reports/documents/contratoplantilla.docx'
+        output_base_path = 'reports/output'
+
+        # Asegurarse de que el directorio de salida existe
+        if not os.path.exists(output_base_path):
+            os.makedirs(output_base_path)
+
+        # Generar el reporte
+        nombre_archivo = generar_reporte(template_path, output_base_path, report_data.model_dump())
+
+        return {"message": "Reporte generado exitosamente", "file_path": nombre_archivo}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/contracts-expiring", response_model=List[ContractDetails])
 async def get_contracts_expiring():
@@ -70,75 +88,9 @@ async def get_contracts_expiring():
 
     finally:
         conn.close()
-@router.get("/next-payments", response_model=List[NextPayment])
-def get_next_payments():
-    try:
-        conn = create_connection()
-        cursor = conn.cursor()
+        
+        
 
-        # Consulta para obtener todos los contratos con su fecha de primer pago
-        cursor.execute("""
-            SELECT Contratos.ID, Contratos.FechaPrimerPago, Clientes.Nombre AS ClienteNombre, Clientes.Apellido AS ClienteApellido,
-                   Inmuebles.Direccion AS InmuebleDireccion, Propietarios.Nombre AS PropietarioNombre,
-                   Pagos.FechaPago AS UltimoPago, Pagos.Monto AS MontoUltimoPago,Propietarios.Apellido AS PropietarioApellido
-            FROM Contratos
-            INNER JOIN Clientes ON Contratos.ClienteID = Clientes.ID
-            INNER JOIN Inmuebles ON Contratos.InmuebleID = Inmuebles.ID
-            INNER JOIN Propietarios ON Contratos.PropietarioID = Propietarios.ID
-            LEFT JOIN Pagos ON Pagos.ContratoID = Contratos.ID 
-            """)
-
-        contratos = cursor.fetchall()
-
-        if not contratos:
-            raise HTTPException(status_code=404, detail="No se encontraron contratos")
-
-        today = datetime.today()
-
-        next_payments = []
-        for contrato in contratos:
-            contrato_id = contrato[0]
-            primer_pago = datetime.strptime(contrato[1], '%Y-%m-%d')
-
-            # Calcula el siguiente pago a partir del mes del primer pago
-            siguiente_pago = primer_pago
-            while siguiente_pago <= today:
-                siguiente_pago += timedelta(days=30)  # Suponiendo pagos mensuales
-            
-            # Verifica si hay un pago registrado para esta fecha
-            if contrato[6]:  # Si hay un último pago registrado
-                estado = "Pagado"
-                monto = contrato[7]
-            else:
-                if siguiente_pago > today:
-                    estado = "Pendiente"
-                    monto = None
-                else:
-                    estado = "Vencido"
-                    monto = None
-            
-            # Guarda el resultado en la lista de próximos pagos
-            next_payment = NextPayment(
-                ContratoID=contrato_id,
-                ClienteNombre=contrato[2],
-                ClienteApellido=contrato[3],
-                InmuebleDireccion=contrato[4],
-                PropietarioNombre=contrato[5],
-                PropietarioApellido= contrato[8],
-                PrimerPago=primer_pago.strftime('%Y-%m-%d'),
-                SiguientePago=siguiente_pago.strftime('%Y-%m-%d'),
-                Estado=estado,
-                Monto=monto
-            )
-            next_payments.append(next_payment)
-
-        return next_payments
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-    finally:
-        conn.close()
 
 @router.get("/contracts", response_model=List[ContractDetails])
 def get_contracts():

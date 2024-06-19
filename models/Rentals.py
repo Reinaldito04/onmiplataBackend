@@ -30,17 +30,14 @@ class ContractDetails(BaseModel):
     CedulaPropietario : str 
     CedulaCliente : str 
     
-class NextPayment(BaseModel):
-    ContratoID: int
-    PrimerPago: str
-    SiguientePago: str
-    Estado: str
-    Monto: Optional[float]
-    ContratoID: int
-    PrimerPago: str
-    SiguientePago: str
-    ClienteNombre:str
-    ClienteApellido:str
-    PropietarioNombre:str
-    PropietarioApellido:str
-    InmuebleDireccion : str 
+    
+class ReportData(BaseModel):
+    fecha: str
+    nombre: str
+    inmueble: str
+    municipio:str
+    motivo:str
+    fechaInicio:str
+    fechaFin:str 
+    duracionMeses:str 
+    monto:str 
