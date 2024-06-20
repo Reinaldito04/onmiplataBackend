@@ -26,18 +26,34 @@ class ContractDetails(BaseModel):
     InmuebleDireccion: str
     FechaInicio: str
     FechaFin: str
-    ContratoID:int
-    CedulaPropietario : str 
-    CedulaCliente : str 
-    
-    
+    ContratoID: int
+    CedulaPropietario: str
+    CedulaCliente: str
+    DuracionMeses: int
+    Monto: float
+    Municipio: str
+
+
 class ReportData(BaseModel):
     fecha: str
     nombre: str
     inmueble: str
-    municipio:str
-    motivo:str
-    fechaInicio:str
-    fechaFin:str 
-    duracionMeses:str 
-    monto:str 
+    municipio: str
+    motivo: str
+    fechaInicio: str
+    fechaFin: str
+    duracionMeses: int
+    monto: float
+
+
+class notificacionInquilino(BaseModel):
+    condominio: str
+    fecha: str
+    nombre: str
+    cedula: str
+    inmueble: str
+    telefono: str
+    mes: str
+    year: str
+    mudanzaday: str
+    mudanzames: str

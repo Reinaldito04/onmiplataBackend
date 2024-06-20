@@ -6,6 +6,9 @@ from routers.Inmueble import router as router_inmueble
 from routers.Payments import router as router_payments
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import os 
+from fastapi.responses import FileResponse
+from fastapi import HTTPException
 app = FastAPI()
 
 
@@ -14,6 +17,8 @@ origins = [
     # Agrega otras URLs de frontend si es necesario
 ]
 app.mount("/media", StaticFiles(directory="media"), name="media")
+# Monta la carpeta 'reports/output' para servir archivos estáticos desde '/reports/output'
+app.mount("/reports/output", StaticFiles(directory="reports/output"), name="reports_output")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
