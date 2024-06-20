@@ -32,7 +32,7 @@ class ContractDetails(BaseModel):
     DuracionMeses: int
     Monto: float
     Municipio: str
-
+    Telefono : Optional[str]
 
 class ReportData(BaseModel):
     fecha: str

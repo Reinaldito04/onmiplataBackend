@@ -224,7 +224,8 @@ def get_contracts():
         Clientes.DNI AS ClienteDNI,
         Contratos.DuracionMeses,
         Contratos.Monto,
-        Inmuebles.Municipio
+        Inmuebles.Municipio,
+        Clientes.Telefono
         
     FROM 
         Contratos
@@ -257,7 +258,8 @@ def get_contracts():
             CedulaCliente = row[9],
             DuracionMeses = row[10],
             Monto = row[11],
-            Municipio = row[12]
+            Municipio = row[12],
+            Telefono = row[13]
             
             
         )
