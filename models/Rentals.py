@@ -1,6 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
-
+from typing import Optional,List, Dict
 
 class Rentals(BaseModel):
     InquilinoName: str
@@ -57,3 +56,25 @@ class notificacionInquilino(BaseModel):
     year: str
     mudanzaday: str
     mudanzames: str
+    
+class Inquilino(BaseModel):
+    nombre: str
+    cedula: str
+
+class Vehiculo(BaseModel):
+    modelo: str
+    placa: str
+    color: str
+
+class Telefono(BaseModel):
+    numero: str
+
+class ReporteNotificacion(BaseModel):
+    fecha_inicio: str
+    inquilinos: List[Inquilino]
+    inmueble: str
+    vehiculos: List[Vehiculo]
+    telefonos: List[str]
+    condominio : str 
+    ubicacion : str 
+    fechaActual : str
