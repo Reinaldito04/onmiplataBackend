@@ -37,7 +37,8 @@ async def get_contracts_expiring():
             Contratos.DuracionMeses,
             Contratos.Monto,
             Inmuebles.Municipio,
-            Clientes.Telefono
+            Clientes.Telefono,
+            Inmuebles.ID
             
             
         FROM 
@@ -74,7 +75,8 @@ async def get_contracts_expiring():
                 DuracionMeses=row[10],
                 Monto=row[11],
                 Municipio=row[12],
-                Telefono=row[13]
+                Telefono=row[13],
+                InmuebleID=row[14]
             )
             contracts.append(contract)
 
@@ -109,7 +111,8 @@ def get_contracts():
         Contratos.DuracionMeses,
         Contratos.Monto,
         Inmuebles.Municipio,
-        Clientes.Telefono
+        Clientes.Telefono,
+        Inmuebles.ID
         
     FROM 
         Contratos
@@ -143,7 +146,9 @@ def get_contracts():
             DuracionMeses = row[10],
             Monto = row[11],
             Municipio = row[12],
-            Telefono = row[13]
+            Telefono = row[13],
+            InmuebleID=row[14]
+            
             
             
         )

@@ -33,6 +33,7 @@ class ContractDetails(BaseModel):
     Monto: float
     Municipio: str
     Telefono: Optional[str]
+    InmuebleID: Optional[int]
 
 
 class ReportData(BaseModel):
