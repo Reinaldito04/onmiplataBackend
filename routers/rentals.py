@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from db.db import create_connection
 from pydantic import BaseModel
-from models.Rentals import Rentals, ContractDetails,ReportData,notificacionInquilino,ReporteNotificacion
+from models.Rentals import Rentals, ContractDetails,ReportData,notificacionInquilino,ReporteNotificacion,ContractRenew
 from typing import List
 from datetime import datetime,timedelta
 from reports.Contrato import generar_reporte
@@ -90,7 +90,49 @@ async def get_contracts_expiring():
         
         
 
-
+@router.delete("/contract/{ID}")
+def cancelar_contract(ID :int ):
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM Contratos WHERE ID =?",(ID,))
+    cursor.execute("DELETE FROM  Acontecimientos WHERE ContratoID=?",(ID,))
+    cursor.execute("DELETE FROM Pagos WHERE ContratoID=?",(ID,))
+    conn.commit()
+    conn.close()
+    return {
+        "message": "Contrato cancelado"
+    }
+    
+@router.put("/contract/renew")
+def renew_contract(contract: ContractRenew):
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        
+        # Calcula la duración en meses
+        fecha_inicio = datetime.strptime(contract.FechaInicio, '%Y-%m-%d')
+        fecha_fin = datetime.strptime(contract.FechaFin, '%Y-%m-%d')
+        duracion_meses = (fecha_fin.year - fecha_inicio.year) * 12 + fecha_fin.month - fecha_inicio.month
+        
+        # Ejemplo de sentencia UPDATE
+        cursor.execute("""
+            UPDATE Contratos
+            SET FechaInicio = ?,
+                FechaFin = ?,
+                Monto = ?,
+                DuracionMeses = ?
+            WHERE ID = ?
+        """, (contract.FechaInicio, contract.FechaFin, contract.Monto, duracion_meses, contract.ID))
+        
+        conn.commit()  # Guardar los cambios en la base de datos
+        
+        conn.close()
+        
+        return {"message": "Contrato renovado exitosamente"}
+    
+    except Exception as e:
+        print(f"Error al renovar el contrato: {e}")
+        raise HTTPException(status_code=500, detail="Error al renovar el contrato")
 @router.get("/contracts", response_model=List[ContractDetails])
 def get_contracts():
     conn = create_connection()
@@ -206,9 +248,9 @@ def agg_contract(arriendo: Rentals):
 
         # Inserta el contrato
         cursor.execute(
-            "INSERT INTO Contratos (ClienteID, PropietarioID, InmuebleID, FechaInicio, FechaFin, Monto, Comision, FechaPrimerPago, DuracionMeses) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO Contratos (ClienteID, PropietarioID, InmuebleID, FechaInicio, FechaFin, Monto, Comision, FechaPrimerPago, DuracionMeses,Estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)",
             (client_id, propietario_id, inmueble_id, arriendo.FechaInicio, arriendo.FechaFinalizacion,
-             arriendo.PriceMensual, arriendo.PorcentajeComision, arriendo.FechaDeComision, duracion_meses)
+             arriendo.PriceMensual, arriendo.PorcentajeComision, arriendo.FechaDeComision, duracion_meses,"Activo")
         )
 
         # Confirma la transacción

@@ -36,6 +36,12 @@ class ContractDetails(BaseModel):
     InmuebleID: Optional[int]
 
 
+class ContractRenew(BaseModel):
+    ID: int
+    FechaInicio: str
+    FechaFin: str
+    Monto: float
+
 class ReportData(BaseModel):
     fecha: str
     nombre: str

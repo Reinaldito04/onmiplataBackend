@@ -7,6 +7,7 @@ from routers.Payments import router as router_payments
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from routers.reports import router as router_reports
+from routers.Information import router as router_information
 import os 
 from fastapi.responses import FileResponse
 from fastapi import HTTPException
@@ -33,6 +34,7 @@ app.include_router(router_clients)
 app.include_router(router_rentals)
 app.include_router(router_payments)
 app.include_router(router_reports)
+app.include_router(router_information)
 
 @app.get("/")
 async def root():
