@@ -29,3 +29,8 @@ class NextPayment(BaseModel):
     PropietarioApellido:str
     InmuebleDireccion : str 
     DeudaRestante: float
+    
+class GestionPago(BaseModel):
+    ContratoID: int
+    Fecha : str 
+    Concepto : str 

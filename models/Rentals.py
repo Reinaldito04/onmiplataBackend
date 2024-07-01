@@ -16,6 +16,7 @@ class Rentals(BaseModel):
     FechaDeComision: str
     FechaInicio: str
     FechaFinalizacion: str
+    comisiones: List[str]
 
 
 class ContractDetails(BaseModel):

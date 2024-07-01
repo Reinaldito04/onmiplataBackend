@@ -1,9 +1,79 @@
 from fastapi import APIRouter, HTTPException, Query
 from db.db import create_connection
-from models.Payments import DetailsPagos, Pagos,NextPayment
+from models.Payments import DetailsPagos, Pagos,NextPayment,GestionPago
 from typing import List
 from datetime import datetime,timedelta
 router = APIRouter()
+
+
+@router.post("/gestionPays")
+def pay_gestion(gestion : GestionPago):
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO GestionCobro ( fechaCobro,ContratoID,Concepto) VALUES (?,?,?)",
+                   (gestion.Fecha, gestion.ContratoID,gestion.Concepto))
+    conn.commit()
+    conn.close()
+    return {
+        "Message": "agregado correctamente"
+    }
+    
+@router.get("/gestionPays")
+def get_gestion():
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+                   
+                   SELECT gc.ID AS GestionCobroID,
+                    gc.fechaCobro,
+                    gc.ContratoID,
+                    gc.Concepto,
+                    c.ID AS ContratoID,
+                    cl.ID AS ClienteID,
+                    p.ID AS PropietarioID,
+                    p.Nombre AS PropietarioNombre,
+                    p.Apellido AS PropietarioApellido,
+                    p.DNI AS PropietarioCedula ,
+                    cl.Nombre AS ClienteNombre,
+                    cl.Apellido AS ClienteApellido,
+                    cl.DNI AS CedulaCliente
+                    
+                    FROM GestionCobro gc
+                    JOIN 
+                        Contratos c ON gc.ContratoID = c.ID
+                    JOIN 
+                        Clientes cl ON c.ClienteID = cl.ID
+                    JOIN 
+                        Propietarios p ON c.PropietarioID = p.ID;
+
+                   
+                   
+                   """)
+    rows = cursor.fetchall()
+    conn.close()
+    gestionList = []
+    
+    for row in rows:
+        gestionList.append({
+            "GestionCobroID": row[0],
+            "FechaCobro": row[1],
+            "ContratoID": row[2],
+            "Concepto": row[3],
+            "ContratoID": row[4],
+            "ClienteID": row[5],
+            "PropietarioID": row[6],
+            "PropietarioNombre": row[7],
+            "PropietarioApellido": row[8],
+            "PropietarioCedula": row[9],
+            "ClienteNombre": row[10],
+            "ClienteApellido": row[11],
+            "CedulaCliente": row[12],
+        })
+    if not gestionList:
+        return []    
+    return gestionList
+
+
 
 
 @router.get("/getPays", response_model=List[DetailsPagos])
