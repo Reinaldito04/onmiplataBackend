@@ -23,21 +23,69 @@ def obtener_comisiones_mes_actual():
 
         # Consultar las comisiones de los contratos del mes actual
         cursor.execute("""
-            SELECT c.IDContracto, c.ID, c.Fecha
+            SELECT c.IDContracto, c.ID, c.Fecha,
+                   ct.Comision,
+                   p.Nombre || ' ' || p.Apellido AS NombrePropietario,
+                   p.Telefono AS TelefonoPropietario,
+                   p.DNI AS DNIPropietario,
+                   cl.Nombre || ' ' || cl.Apellido AS NombreCliente,
+                   cl.Telefono AS TelefonoCliente,
+                   cl.DNI AS DniCliente,
+                   i.ID AS InmuebleID,
+                   i.Direccion,
+                   i.Municipio,
+                   ct.Monto
             FROM Comisiones c
             INNER JOIN Contratos ct ON c.IDContracto = ct.ID
-            WHERE strftime('%Y-%m', c.Fecha) = ?
+            INNER JOIN Propietarios p ON ct.PropietarioID = p.ID
+            INNER JOIN Clientes cl ON ct.ClienteID = cl.ID
+            INNER JOIN Inmuebles i ON i.ID = ct.InmuebleID
+            WHERE strftime('%Y-%m', c.Fecha) = ? AND ct.Estado = "Activo"
         """, (fecha_actual,))
-        
+
         comisiones = cursor.fetchall()
+        data = []
+        for comision in comisiones:
+            data.append({
+                "IDContracto": comision[0],
+                "ID": comision[1],
+                "Fecha": comision[2],
+                "Comision": comision[3],
+                "NombrePropietario": comision[4],
+                "TelefonoPropietario": comision[5],
+                "DNIPropietario": comision[6],
+                "NombreCliente": comision[7],
+                "TelefonoCliente": comision[8],
+                "DniCliente": comision[9],
+                "InmuebleID": comision[10],
+                "Direccion": comision[11],
+                "Municipio": comision[12],
+                "Monto": comision[13]
+            })
 
         conn.close()
 
-        return {"comisiones_mes_actual": comisiones}
+        return {"comisiones_mes_actual": data}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.put("/contract-desactivar/{id}")
+async def desactivar_contract(id: int):
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE Contratos SET Estado = 'Inactivo' WHERE Estado = 'Activo' AND ID=?", (id,))
+        conn.commit()
+        conn.close()
+        return {"message": "Contrato desactivado exitosamente"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/contract-activar")
 @router.get("/contracts-expiring", response_model=List[ContractDetails])
 async def get_contracts_expiring():
     try:
@@ -126,7 +174,7 @@ def cancelar_contract(ID: int):
     cursor.execute("DELETE FROM Contratos WHERE ID =?", (ID,))
     cursor.execute("DELETE FROM  Acontecimientos WHERE ContratoID=?", (ID,))
     cursor.execute("DELETE FROM Pagos WHERE ContratoID=?", (ID,))
-    cursor.execute("DELETE FROM Comisiones WHERE IDContracto=?",(ID,))
+    cursor.execute("DELETE FROM Comisiones WHERE IDContracto=?", (ID,))
     conn.commit()
     conn.close()
     return {
@@ -286,7 +334,8 @@ def agg_contract(arriendo: Rentals):
         # Calcula la duración en meses
         fecha_inicio = datetime.strptime(arriendo.FechaInicio, '%Y-%m-%d')
         fecha_fin = datetime.strptime(arriendo.FechaFinalizacion, '%Y-%m-%d')
-        duracion_meses = relativedelta(fecha_fin, fecha_inicio).months + (relativedelta(fecha_fin, fecha_inicio).years * 12)
+        duracion_meses = relativedelta(
+            fecha_fin, fecha_inicio).months + (relativedelta(fecha_fin, fecha_inicio).years * 12)
 
         # Inserta el contrato
         cursor.execute(

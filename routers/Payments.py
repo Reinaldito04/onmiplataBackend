@@ -1,23 +1,24 @@
 from fastapi import APIRouter, HTTPException, Query
 from db.db import create_connection
-from models.Payments import DetailsPagos, Pagos,NextPayment,GestionPago
+from models.Payments import DetailsPagos, Pagos, NextPayment, GestionPago
 from typing import List
-from datetime import datetime,timedelta
+from datetime import datetime, timedelta
 router = APIRouter()
 
 
 @router.post("/gestionPays")
-def pay_gestion(gestion : GestionPago):
+def pay_gestion(gestion: GestionPago):
     conn = create_connection()
     cursor = conn.cursor()
     cursor.execute("INSERT INTO GestionCobro ( fechaCobro,ContratoID,Concepto) VALUES (?,?,?)",
-                   (gestion.Fecha, gestion.ContratoID,gestion.Concepto))
+                   (gestion.Fecha, gestion.ContratoID, gestion.Concepto))
     conn.commit()
     conn.close()
     return {
         "Message": "agregado correctamente"
     }
-    
+
+
 @router.get("/gestionPays")
 def get_gestion():
     conn = create_connection()
@@ -52,7 +53,7 @@ def get_gestion():
     rows = cursor.fetchall()
     conn.close()
     gestionList = []
-    
+
     for row in rows:
         gestionList.append({
             "GestionCobroID": row[0],
@@ -70,10 +71,8 @@ def get_gestion():
             "CedulaCliente": row[12],
         })
     if not gestionList:
-        return []    
+        return []
     return gestionList
-
-
 
 
 @router.get("/getPays", response_model=List[DetailsPagos])
@@ -137,6 +136,7 @@ def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal
 
     finally:
         conn.close()
+# Función para obtener todos los meses entre dos fechas
 
 
 @router.get("/next-payments", response_model=List[NextPayment])
@@ -145,13 +145,11 @@ def get_next_payments():
         conn = create_connection()
         cursor = conn.cursor()
 
-        # Consulta para obtener todos los contratos con su fecha de primer pago y último pago registrado
+        # Consulta para obtener todos los contratos con su fecha de primer pago y otros detalles
         cursor.execute("""
             SELECT Contratos.ID, Contratos.FechaPrimerPago, Clientes.Nombre AS ClienteNombre, Clientes.Apellido AS ClienteApellido,
                    Inmuebles.Direccion AS InmuebleDireccion, Propietarios.Nombre AS PropietarioNombre, Propietarios.Apellido AS PropietarioApellido,
-                   Contratos.Monto AS MontoContrato,
-                   (SELECT MAX(Pagos.FechaPago) FROM Pagos WHERE Pagos.ContratoID = Contratos.ID) AS UltimoPago,
-                   (SELECT SUM(Pagos.Monto) FROM Pagos WHERE Pagos.ContratoID = Contratos.ID) AS TotalPagado
+                   Contratos.Monto AS MontoContrato
             FROM Contratos
             INNER JOIN Clientes ON Contratos.ClienteID = Clientes.ID
             INNER JOIN Inmuebles ON Contratos.InmuebleID = Inmuebles.ID
@@ -164,8 +162,11 @@ def get_next_payments():
             raise HTTPException(status_code=404, detail="No se encontraron contratos")
 
         today = datetime.today()
+        mes_actual = today.month
+        anio_actual = today.year
 
         next_payments = []
+
         for contrato in contratos:
             contrato_id = contrato[0]
             primer_pago = datetime.strptime(contrato[1], '%Y-%m-%d')
@@ -175,35 +176,44 @@ def get_next_payments():
             propietario_nombre = contrato[5]
             propietario_apellido = contrato[6]
             monto_contrato = contrato[7]
-            ultimo_pago = contrato[8]
-            total_pagado = contrato[9] if contrato[9] else 0
 
-            # Calcular el siguiente pago a partir del mes del primer pago
-            siguiente_pago = primer_pago
-            while siguiente_pago <= today:
-                siguiente_pago += timedelta(days=30)  # Suponiendo pagos mensuales
+            # Verificar si ya se registró el pago completo este mes
+            cursor.execute("""
+                SELECT COUNT(*) FROM ContratosPagadosMes
+                WHERE ContratoID = ? AND Mes = ? AND Anio = ?
+            """, (contrato_id, mes_actual, anio_actual))
 
-            # Verificar si el total pagado es igual al monto del contrato
-            if total_pagado >= monto_contrato:
-                estado = "Pagado"
-                deuda_restante = 0
-            else:
-                estado = "Deuda"
-                deuda_restante = monto_contrato - total_pagado
+            if cursor.fetchone()[0] > 0:
+                continue  # Si el contrato ya está pagado este mes, lo omitimos
 
-            # Guarda el resultado en la lista de próximos pagos
+            # Calcular el total de los pagos realizados hasta ahora para el contrato
+            cursor.execute("SELECT SUM(Monto) FROM Pagos WHERE ContratoID = ?", (contrato_id,))
+            total_pagado = cursor.fetchone()[0]
+
+            if total_pagado is None:
+                total_pagado = 0
+
+            # Calcular la deuda pendiente
+            meses_transcurridos = (today.year - primer_pago.year) * 12 + (today.month - primer_pago.month)
+            deuda_pendiente = (monto_contrato * meses_transcurridos) - total_pagado
+
+            # Calcular el siguiente pago (asumiendo que los pagos son mensuales)
+            siguiente_pago = primer_pago + timedelta(days=30 * meses_transcurridos)
+            estado = "Deuda pendiente" if deuda_pendiente > 0 else "Pagado"
+
+            # Crear el objeto NextPayment
             next_payment = NextPayment(
                 ContratoID=contrato_id,
-                ClienteNombre=cliente_nombre,
-                ClienteApellido=cliente_apellido,
-                InmuebleDireccion=inmueble_direccion,
-                PropietarioNombre=propietario_nombre,
-                PropietarioApellido=propietario_apellido,
                 PrimerPago=primer_pago.strftime('%Y-%m-%d'),
                 SiguientePago=siguiente_pago.strftime('%Y-%m-%d'),
                 Estado=estado,
                 Monto=monto_contrato,
-                DeudaRestante=deuda_restante
+                ClienteNombre=cliente_nombre,
+                ClienteApellido=cliente_apellido,
+                PropietarioNombre=propietario_nombre,
+                PropietarioApellido=propietario_apellido,
+                InmuebleDireccion=inmueble_direccion,
+                DeudaRestante=deuda_pendiente
             )
             next_payments.append(next_payment)
 
@@ -214,6 +224,8 @@ def get_next_payments():
 
     finally:
         conn.close()
+
+
 
 
 @router.post("/PayRental")
@@ -229,36 +241,59 @@ def pay_rental(pagos: Pagos):
         """, (pagos.IdContract, pagos.Date, pagos.Amount, pagos.PaymentType))
 
         # Calcular el monto total del contrato y la fecha de primer pago
-        cursor.execute("SELECT Monto, FechaPrimerPago FROM Contratos WHERE ID = ?", (pagos.IdContract,))
+        cursor.execute(
+            "SELECT Monto, FechaPrimerPago FROM Contratos WHERE ID = ?", (pagos.IdContract,))
         contrato = cursor.fetchone()
 
         if not contrato:
-            raise HTTPException(status_code=404, detail="Contrato no encontrado")
+            raise HTTPException(
+                status_code=404, detail="Contrato no encontrado")
 
         monto_contrato = contrato[0]
         fecha_primer_pago = datetime.strptime(contrato[1], '%Y-%m-%d')
 
         # Calcular el total de los pagos realizados hasta ahora para el contrato
-        cursor.execute("SELECT SUM(Monto) FROM Pagos WHERE ContratoID = ?", (pagos.IdContract,))
+        cursor.execute(
+            "SELECT SUM(Monto) FROM Pagos WHERE ContratoID = ?", (pagos.IdContract,))
         total_pagado = cursor.fetchone()[0]
 
         if total_pagado is None:
             total_pagado = 0
 
-        # Calcular los meses desde el primer pago hasta la fecha actual
-        today = datetime.today()
-        meses_transcurridos = (today.year - fecha_primer_pago.year) * 12 + (today.month - fecha_primer_pago.month)
-
         # Calcular la deuda pendiente
+        today = datetime.today()
+        meses_transcurridos = (today.year - fecha_primer_pago.year) * \
+            12 + (today.month - fecha_primer_pago.month)
         deuda_pendiente = (monto_contrato * meses_transcurridos) - total_pagado
+
+        # Verificar si se ha completado la deuda para el mes actual
+        if deuda_pendiente <= 0:
+            # Obtener mes y año actual
+            mes_actual = today.month
+            anio_actual = today.year
+
+            # Verificar si ya se registró el pago completo este mes
+            cursor.execute("""
+                SELECT COUNT(*) FROM ContratosPagadosMes
+                WHERE ContratoID = ? AND Mes = ? AND Anio = ?
+            """, (pagos.IdContract, mes_actual, anio_actual))
+
+            if cursor.fetchone()[0] == 0:
+                # Registrar el contrato como pagado para el mes actual
+                cursor.execute("""
+                    INSERT INTO ContratosPagadosMes (ContratoID, Mes, Anio, FechaPagoReal)
+                    VALUES (?, ?, ?, ?)
+                """, (pagos.IdContract, mes_actual, anio_actual, today))
+
+            conn.commit()
+            conn.close()
+
+            return {"message": "Pago registrado exitosamente", "status": "Pagado", "deuda_pendiente": 0}
 
         conn.commit()
         conn.close()
 
-        if deuda_pendiente <= 0:
-            return {"message": "Pago registrado exitosamente", "status": "Pagado", "deuda_pendiente": 0}
-        else:
-            return {"message": "Pago registrado exitosamente", "status": "Deuda pendiente", "deuda_pendiente": deuda_pendiente}
+        return {"message": "Pago registrado exitosamente", "status": "Deuda pendiente", "deuda_pendiente": deuda_pendiente}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
