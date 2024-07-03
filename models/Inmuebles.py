@@ -1,10 +1,10 @@
 from pydantic import BaseModel
-
+from typing import Optional
 
 class Inmueble(BaseModel):
     Direccion: str
     Tipo: str
-    CedulaPropietario: str
+    CedulaPropietario: Optional[str]
     Descripcion: str
     Municipio : str 
 

@@ -97,7 +97,7 @@ async def get_inmuebles():
 
         # Obtener las imágenes asociadas al inmueble
         cursor.execute(
-            "SELECT Imagen, Descripcion FROM IMAGENES WHERE InmuebleID = ?", (inmueble[0],))
+            "SELECT Imagen, Descripcion,FechaSubida FROM IMAGENES WHERE InmuebleID = ?", (inmueble[0],))
         imagenes = cursor.fetchall()
 
         # Construir el diccionario del inmueble con toda la información obtenida
@@ -114,7 +114,8 @@ async def get_inmuebles():
             "ApellidoInquilino": cliente[1] if cliente else "",
             "CedulaInquilino": cliente[2] if cliente else "",
             # Lista de imágenes con su descripción
-            "Imagenes": [{"Imagen": img[0], "Descripcion": img[1]} for img in imagenes]
+            "Imagenes": [{"Imagen": img[0], "Descripcion": img[1],
+                          "FechaSubida": img[2]} for img in imagenes]
         }
         inmuebles_list.append(inmueble_dist)
 
@@ -143,6 +144,35 @@ async def add_inmueble(inmueble: Inmueble):
     return {
         "Message": "agregado correctamente"
     }
+
+@router.put("/editInmueble/{ID}")
+async def edit_inmueble(inmueble: Inmueble, ID: int):
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE Inmuebles SET Direccion = ?, Tipo = ?, Descripcion = ?, Municipio = ? WHERE ID = ?",
+            (inmueble.Direccion, inmueble.Tipo, inmueble.Descripcion, inmueble.Municipio, ID)
+        )
+        conn.commit()
+        conn.close()
+        return {"Message": "editado correctamente"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/deleteInmueble/{ID}")
+async def delete_inmueble(ID: int):
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM Inmuebles WHERE ID = ?", (ID,))
+    conn.commit()
+    conn.close()
+    return {
+        "Message": "eliminado correctamente"
+    }
+
+
+    
 
 
 # SERVICIOS
