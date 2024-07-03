@@ -85,7 +85,6 @@ async def desactivar_contract(id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/contract-activar")
 @router.get("/contracts-expiring", response_model=List[ContractDetails])
 async def get_contracts_expiring():
     try:
@@ -214,6 +213,76 @@ def renew_contract(contract: ContractRenew):
         print(f"Error al renovar el contrato: {e}")
         raise HTTPException(
             status_code=500, detail="Error al renovar el contrato")
+
+
+
+@router.get("/contracts/Vencidos", response_model=List[ContractDetails])
+def get_contracts():
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    query = """
+    SELECT 
+        Clientes.Nombre AS ClienteNombre,
+        Clientes.Apellido AS ClienteApellido,
+        Propietarios.Nombre AS PropietarioNombre,
+        Propietarios.Apellido AS PropietarioApellido,
+        Inmuebles.Direccion AS InmuebleDireccion,
+        Contratos.FechaInicio,
+        Contratos.FechaFin,
+        Contratos.ID,
+        Propietarios.DNI AS PropietarioDNI,
+        Clientes.DNI AS ClienteDNI,
+        Contratos.DuracionMeses,
+        Contratos.Monto,
+        Inmuebles.Municipio,
+        Clientes.Telefono,
+        Inmuebles.ID
+        
+    FROM 
+        Contratos
+    INNER JOIN 
+        Clientes ON Contratos.ClienteID = Clientes.ID
+    INNER JOIN 
+        Propietarios ON Contratos.PropietarioID = Propietarios.ID
+    INNER JOIN 
+        Inmuebles ON Contratos.InmuebleID = Inmuebles.ID
+    WHERE Contratos.Estado = "Inactivo"
+        ;
+    """
+
+    cursor.execute(query)
+    result = cursor.fetchall()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="No contracts found")
+
+    contracts = []
+    for row in result:
+        contract = ContractDetails(
+            ClienteNombre=row[0],
+            ClienteApellido=row[1],
+            PropietarioNombre=row[2],
+            PropietarioApellido=row[3],
+            InmuebleDireccion=row[4],
+            FechaInicio=row[5],
+            FechaFin=row[6],
+            ContratoID=row[7],
+            CedulaPropietario=row[8],
+            CedulaCliente=row[9],
+            DuracionMeses=row[10],
+            Monto=row[11],
+            Municipio=row[12],
+            Telefono=row[13],
+            InmuebleID=row[14]
+
+
+
+        )
+        contracts.append(contract)
+
+    conn.close()
+    return contracts
 
 
 @router.get("/contracts", response_model=List[ContractDetails])

@@ -162,15 +162,34 @@ async def edit_inmueble(inmueble: Inmueble, ID: int):
 
 @router.delete("/deleteInmueble/{ID}")
 async def delete_inmueble(ID: int):
-    conn = create_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM Inmuebles WHERE ID = ?", (ID,))
-    conn.commit()
-    conn.close()
-    return {
-        "Message": "eliminado correctamente"
-    }
-
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        
+        # Obtener las imágenes vinculadas al inmueble
+        cursor.execute("SELECT Imagen FROM Imagenes WHERE InmuebleID = ?", (ID,))
+        images = cursor.fetchall()
+        
+        # Eliminar los archivos de imagen del directorio de medios
+        for image in images:
+            image_path = os.path.join(MEDIA_DIRECTORY, image[0])
+            if os.path.exists(image_path):
+                os.remove(image_path)
+        
+        # Eliminar las imágenes de la base de datos
+        cursor.execute("DELETE FROM Imagenes WHERE InmuebleID = ?", (ID,))
+        
+        # Eliminar el inmueble
+        cursor.execute("DELETE FROM Inmuebles WHERE ID = ?", (ID,))
+        cursor.execute("DELETE FROM ServiciosInmueble WHERE InmuebleID=?", (ID,))
+        conn.commit()
+        conn.close()
+        
+        return {
+            "Message": "Eliminado correctamente"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     
 
