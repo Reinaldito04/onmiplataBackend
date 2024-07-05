@@ -93,6 +93,34 @@ class ReporteNotificacion(BaseModel):
     ubicacion: str
     fechaActual: str
 
+class EntregaInmueble(BaseModel):
+    fechaEntrega : str 
+    horaEntrega:str 
+    inmueble : str 
+    inquilino: str 
+    cantidadLlaves: str 
+    magneticas: str 
+    tarjetas: str 
+    controlAcceso: str 
+    PinturaParedes: str 
+    PuertaCloset:str 
+    TechoPintura: str 
+    CocinaPuerta : str 
+    PinturaPuertas:str 
+    cocina:str 
+    limpieza: str 
+    batea : str 
+    lavaPlatos : str 
+    cocinaEstado : str 
+    pocetas : str 
+    ventanas: str 
+    aireacondicionado :str 
+    cantv: str 
+    gas : str 
+    internet : str 
+    corpoelec : str 
+    condominio: str 
+    observaciones : str 
 
 class CrearInquilinoReporte(BaseModel):
     nombre: str

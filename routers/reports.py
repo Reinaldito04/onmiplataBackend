@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from models.Rentals import Rentals, ContractDetails,ReportData,notificacionInquilino,ReporteNotificacion,CrearInquilinoReporte
+from models.Rentals import Rentals, ContractDetails,ReportData,notificacionInquilino,ReporteNotificacion,CrearInquilinoReporte,EntregaInmueble
 import os
 from reports.Contrato import generar_reporte
 from pydantic import ValidationError
@@ -10,6 +10,30 @@ from reports.Notificacionvehicular import generar_reporte as generarNotificacion
 router = APIRouter()
 
 
+
+@router.post("/inmueble-entrega")
+def entrega_inmueble(inmueble : EntregaInmueble):
+    try:
+        template_path = 'reports/documents/EntregaInmueble.docx'
+        output_base_path = 'reports/output'
+
+        # Asegurarse de que el directorio de salida existe
+        if not os.path.exists(output_base_path):
+            os.makedirs(output_base_path)
+
+        # Generar el reporte
+        nombre_archivo = generarNotificacionVehicular(template_path=template_path, output_base_path=output_base_path, variables=inmueble.model_dump(),tipo="Entrega Inmueble")
+
+        return {"message": "Reporte generado exitosamente", "file_path": nombre_archivo}
+    
+    except HTTPException as http_error:
+        # Capturar errores de validación HTTP (por ejemplo, 422 Unprocessable Entity)
+        raise http_error
+    
+    except Exception as e:
+        # Capturar cualquier otro error inesperado
+        error_message = f"Error generando el reporte: {str(e)}"
+        raise HTTPException(status_code=500, detail=error_message)
 @router.post("/generate-inquilinoreporte")
 def generate_inquilino(inquilino : CrearInquilinoReporte):
     try:
