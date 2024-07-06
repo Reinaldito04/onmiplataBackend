@@ -190,8 +190,7 @@ def renew_contract(contract: ContractRenew):
         # Calcula la duración en meses
         fecha_inicio = datetime.strptime(contract.FechaInicio, '%Y-%m-%d')
         fecha_fin = datetime.strptime(contract.FechaFin, '%Y-%m-%d')
-        duracion_meses = (fecha_fin.year - fecha_inicio.year) * \
-            12 + fecha_fin.month - fecha_inicio.month
+        duracion_meses = (fecha_fin.year - fecha_inicio.year) * 12 + fecha_fin.month - fecha_inicio.month
 
         # Ejemplo de sentencia UPDATE
         cursor.execute("""
@@ -202,9 +201,16 @@ def renew_contract(contract: ContractRenew):
                 DuracionMeses = ?
             WHERE ID = ?
         """, (contract.FechaInicio, contract.FechaFin, contract.Monto, duracion_meses, contract.ID))
+        
+        cursor.execute("DELETE FROM Comisiones WHERE IDContracto=?", (contract.ID,))
+        
+        for fecha in contract.comisiones:
+            cursor.execute(
+                "INSERT INTO Comisiones (IDContracto, Fecha) VALUES (?, ?)",
+                (contract.ID, fecha)
+            )
 
         conn.commit()  # Guardar los cambios en la base de datos
-
         conn.close()
 
         return {"message": "Contrato renovado exitosamente"}
