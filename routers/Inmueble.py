@@ -107,6 +107,7 @@ async def get_inmuebles():
             "Tipo": inmueble[2],
             "Descripcion": inmueble[4],
             "Municipio": inmueble[5],
+            "Estacionamiento": inmueble[6],
             "NombrePropietario": nombre_propietario,
             "ApellidoPropietario": apellido_propietario,
             "CedulaPropietario": cedula_propietario,
@@ -135,9 +136,9 @@ async def add_inmueble(inmueble: Inmueble):
         raise HTTPException(status_code=404, detail="Propietario not found")
 
     cursor.execute(
-        "INSERT INTO Inmuebles (Direccion, Tipo, PropietarioID,Descripcion,Municipio) VALUES (?, ?, ?,?,?)",
+        "INSERT INTO Inmuebles (Direccion, Tipo, PropietarioID,Descripcion,Municipio,Estacionamiento) VALUES (?, ?, ?,?,?,?)",
         (inmueble.Direccion, inmueble.Tipo,
-         propietario[0], inmueble.Descripcion, inmueble.Municipio)
+         propietario[0], inmueble.Descripcion, inmueble.Municipio,inmueble.Estacionamiento)
     )
     conn.commit()
     conn.close()
@@ -151,8 +152,8 @@ async def edit_inmueble(inmueble: Inmueble, ID: int):
         conn = create_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE Inmuebles SET Direccion = ?, Tipo = ?, Descripcion = ?, Municipio = ? WHERE ID = ?",
-            (inmueble.Direccion, inmueble.Tipo, inmueble.Descripcion, inmueble.Municipio, ID)
+            "UPDATE Inmuebles SET Direccion = ?, Tipo = ?, Descripcion = ?, Municipio = ?,Estacionamiento = ? WHERE ID = ?",
+            (inmueble.Direccion, inmueble.Tipo, inmueble.Descripcion, inmueble.Municipio,inmueble.Estacionamiento, ID)
         )
         conn.commit()
         conn.close()

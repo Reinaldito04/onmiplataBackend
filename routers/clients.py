@@ -1,11 +1,15 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from db.db import create_connection
 from models.Clients import Propietarios, Person
 from datetime import datetime
+import os
+import uuid
 
 router = APIRouter()
 
 # Cumpleaños
+
+
 @router.get("/getBirthdays")
 async def get_birthdays():
     conn = create_connection()
@@ -14,11 +18,13 @@ async def get_birthdays():
     current_month = datetime.now().month
 
     # Consultar cumpleaños de clientes
-    cursor.execute("SELECT ID,Nombre,Apellido,DNI,RIF,FechaNacimiento,Telefono,Email FROM Clientes WHERE strftime('%m', FechaNacimiento) = ?", (f'{current_month:02}',))
+    cursor.execute(
+        "SELECT ID,Nombre,Apellido,DNI,RIF,FechaNacimiento,Telefono,Email FROM Clientes WHERE strftime('%m', FechaNacimiento) = ?", (f'{current_month:02}',))
     clients_birthdays = cursor.fetchall()
 
     # Consultar cumpleaños de propietarios
-    cursor.execute("SELECT ID,Nombre,Apellido,DNI,RIF,FechaNacimiento,Telefono,Email FROM Propietarios WHERE strftime('%m', FechaNacimiento) = ?", (f'{current_month:02}',))
+    cursor.execute(
+        "SELECT ID,Nombre,Apellido,DNI,RIF,FechaNacimiento,Telefono,Email FROM Propietarios WHERE strftime('%m', FechaNacimiento) = ?", (f'{current_month:02}',))
     owners_birthdays = cursor.fetchall()
 
     conn.close()
@@ -57,6 +63,8 @@ async def get_birthdays():
     return birthdays_list
 
 # Inquilinos
+
+
 @router.get("/getInquilinos")
 async def get_inquilinos():
     conn = create_connection()
@@ -81,6 +89,7 @@ async def get_inquilinos():
         clients_list.append(client_dict)
 
     return clients_list
+
 
 @router.post("/addInquilino")
 async def add_inquilino(client: Person):
@@ -115,6 +124,95 @@ async def add_inquilino(client: Person):
     return {"Message": "Inquilino registered"}
 
 # Propietarios
+
+
+class ImageCedula:
+    def __init__(self, id: int):
+        self.id = id
+
+
+MEDIA_DIRECTORY = "./media"
+
+
+@router.post("/addImagenCedula")
+async def add_imagen(id: int = Form(...),  file: UploadFile = File(...)):
+    try:
+        # Procesar la imagen y los datos de ImageInmueble
+        image_cedula = ImageCedula(
+            id=id)
+
+        # Crear un nombre de archivo único
+        unique_filename = generate_unique_filename(file.filename)
+        file_path = os.path.join(MEDIA_DIRECTORY, unique_filename)
+
+        # Guardar la imagen en el directorio de medios
+        with open(file_path, "wb") as image_file:
+            image_file.write(await file.read())
+        # Aquí puedes hacer cualquier procesamiento adicional con la imagen guardada
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE Propietarios SET ImageCedula=? WHERE ID=?",
+            (unique_filename, image_cedula.id)
+        )
+        conn.commit()
+        
+        return {
+            "id": image_cedula.id,
+            "imagen": unique_filename  # Devuelve el nombre del archivo único
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def generate_unique_filename(original_filename):
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    unique_id = uuid.uuid4().hex[:6]  # Genera un UUID único de 6 caracteres
+    _, file_extension = os.path.splitext(original_filename)
+    return f"{timestamp}_{unique_id}{file_extension}"
+
+
+@router.put('/editClient/{ID}')
+async def edit_client(propietario: Propietarios, ID: int):
+    conn = create_connection()
+    cursor = conn.cursor()
+    update_query = """
+    UPDATE Propietarios 
+    SET 
+        Nombre = ?, 
+        Apellido = ?, 
+        DNI = ?, 
+        RIF = ?, 
+        FechaNacimiento = ?, 
+        Direccion = ?, 
+        CodigoPostal = ?, 
+        Telefono = ?, 
+        Email = ? 
+    WHERE ID = ?
+    """
+    try:
+        cursor.execute(update_query, (
+            propietario.name,
+            propietario.lastName,
+            propietario.dni,
+            propietario.rif,
+            propietario.birthdate,
+            propietario.address,
+            propietario.CodePostal,
+            propietario.phone,
+            propietario.email,
+            ID
+        ))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+    return {"message": "Client updated successfully"}
+
+
 @router.get("/getClients")
 async def get_clients():
     conn = create_connection()
@@ -126,6 +224,10 @@ async def get_clients():
     # Convertir los resultados a una lista de diccionarios
     clients_list = []
     for client in clients:
+        imagenCedula = client[10]
+        if (imagenCedula is None):
+            imagenCedula = "No tiene imagen"
+
         client_dict = {
             "id": client[0],
             "name": client[1],
@@ -136,11 +238,13 @@ async def get_clients():
             "address": client[6],
             "codePostal": client[7],
             "phone": client[8],
-            "email": client[9]
+            "email": client[9],
+            "imagenCedula": imagenCedula
         }
         clients_list.append(client_dict)
 
     return clients_list
+
 
 @router.get("/getClient/{id}")
 async def get_client(id: int):
@@ -171,6 +275,17 @@ async def get_client(id: int):
     }
 
     return client_dict
+
+@router.delete('/deleteClient/{id}')
+async def delete_client(id: int):
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM Propietarios WHERE ID =?", (id,))
+    conn.commit()
+    conn.close()
+    return {"message": "Client deleted successfully"}
+
+
 
 @router.post("/addClient")
 async def add_client(client: Propietarios):
