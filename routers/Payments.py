@@ -75,6 +75,29 @@ def get_gestion():
     return gestionList
 
 
+
+@router.get("/getPays/{id}")
+def get_paysIndividual(id : int):
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Pagos WHERE ContratoID = ?", (id,))
+    rows = cursor.fetchall()
+    conn.close()
+    paymentList = []
+
+    for row in rows:
+        paymentList.append({
+            "ID": row[0],
+            "Para": row[1],
+            "Monto": row[2],
+            "FechaPago": row[3],
+            "ContratoID": row[4],
+            "TipoPago": row[5]
+        })
+    if not paymentList:
+        return []
+    return paymentList
+
 @router.get("/getPays", response_model=List[DetailsPagos])
 def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal")):
     try:
@@ -84,7 +107,7 @@ def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal
         if type == "Empresa":
             consulta = """
             SELECT Clientes.Nombre, Clientes.Apellido, Clientes.DNI,
-                   Pagos.Monto, Pagos.FechaPago, Pagos.ContratoID,Pagos.ID
+                   Pagos.Monto, Pagos.FechaPago, Pagos.ContratoID,Pagos.ID,Pagos.TipoPago
             FROM Contratos
             INNER JOIN Clientes ON Contratos.ClienteID = Clientes.ID
             INNER JOIN Pagos ON Pagos.ContratoID = Contratos.ID
@@ -94,7 +117,7 @@ def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal
         elif type == "Personal":
             consulta = """
             SELECT Propietarios.Nombre, Propietarios.Apellido, Propietarios.DNI,
-                   Pagos.Monto, Pagos.FechaPago, Pagos.ContratoID,Pagos.ID
+                   Pagos.Monto, Pagos.FechaPago, Pagos.ContratoID,Pagos.ID,Pagos.TipoPago
             FROM Contratos
             INNER JOIN Propietarios ON Contratos.PropietarioID = Propietarios.ID
             INNER JOIN Pagos ON Pagos.ContratoID = Contratos.ID
@@ -118,7 +141,8 @@ def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal
                 Date=row[4],
                 IdContract=row[5],
                 PaymentType=payment_type,
-                ID=row[6]
+                ID=row[6],
+                TypePay=row[7]
             )
             pagos.append(pago)
 
@@ -230,70 +254,75 @@ def get_next_payments():
 
 @router.post("/PayRental")
 def pay_rental(pagos: Pagos):
+    
     try:
         conn = create_connection()
         cursor = conn.cursor()
 
         # Insertar el pago en la tabla de Pagos
         cursor.execute("""
-            INSERT INTO Pagos (ContratoID, FechaPago, Monto, Para)
-            VALUES (?, ?, ?, ?)
-        """, (pagos.IdContract, pagos.Date, pagos.Amount, pagos.PaymentType))
+            INSERT INTO Pagos (ContratoID, FechaPago, Monto, Para,TipoPago)
+            VALUES (?, ?, ?, ?,?)
+        """, (pagos.IdContract, pagos.Date, pagos.Amount, pagos.PaymentType,pagos.TypePay))
 
         # Calcular el monto total del contrato y la fecha de primer pago
-        cursor.execute(
-            "SELECT Monto, FechaPrimerPago FROM Contratos WHERE ID = ?", (pagos.IdContract,))
-        contrato = cursor.fetchone()
+        if (pagos.TypePay == 'Arrendamiento'):
+            cursor.execute(
+                "SELECT Monto, FechaPrimerPago FROM Contratos WHERE ID = ?", (pagos.IdContract,))
+            contrato = cursor.fetchone()
 
-        if not contrato:
-            raise HTTPException(
-                status_code=404, detail="Contrato no encontrado")
+            if not contrato:
+                raise HTTPException(
+                    status_code=404, detail="Contrato no encontrado")
 
-        monto_contrato = contrato[0]
-        fecha_primer_pago = datetime.strptime(contrato[1], '%Y-%m-%d')
+            monto_contrato = contrato[0]
+            fecha_primer_pago = datetime.strptime(contrato[1], '%Y-%m-%d')
 
-        # Calcular el total de los pagos realizados hasta ahora para el contrato
-        cursor.execute(
-            "SELECT SUM(Monto) FROM Pagos WHERE ContratoID = ?", (pagos.IdContract,))
-        total_pagado = cursor.fetchone()[0]
+            # Calcular el total de los pagos realizados hasta ahora para el contrato
+            cursor.execute(
+                "SELECT SUM(Monto) FROM Pagos WHERE ContratoID = ? AND TipoPago=?", (pagos.IdContract,pagos.TypePay))
+            total_pagado = cursor.fetchone()[0]
 
-        if total_pagado is None:
-            total_pagado = 0
+            if total_pagado is None:
+                total_pagado = 0
 
-        # Calcular la deuda pendiente
-        today = datetime.today()
-        meses_transcurridos = (today.year - fecha_primer_pago.year) * \
-            12 + (today.month - fecha_primer_pago.month)
-        deuda_pendiente = (monto_contrato * meses_transcurridos) - total_pagado
+            # Calcular la deuda pendiente
+            today = datetime.today()
+            meses_transcurridos = (today.year - fecha_primer_pago.year) * \
+                12 + (today.month - fecha_primer_pago.month)
+            deuda_pendiente = (monto_contrato * meses_transcurridos) - total_pagado
 
-        # Verificar si se ha completado la deuda para el mes actual
-        if deuda_pendiente <= 0:
-            # Obtener mes y año actual
-            mes_actual = today.month
-            anio_actual = today.year
+            # Verificar si se ha completado la deuda para el mes actual
+            if deuda_pendiente <= 0:
+                # Obtener mes y año actual
+                mes_actual = today.month
+                anio_actual = today.year
 
-            # Verificar si ya se registró el pago completo este mes
-            cursor.execute("""
-                SELECT COUNT(*) FROM ContratosPagadosMes
-                WHERE ContratoID = ? AND Mes = ? AND Anio = ?
-            """, (pagos.IdContract, mes_actual, anio_actual))
-
-            if cursor.fetchone()[0] == 0:
-                # Registrar el contrato como pagado para el mes actual
+                # Verificar si ya se registró el pago completo este mes
                 cursor.execute("""
-                    INSERT INTO ContratosPagadosMes (ContratoID, Mes, Anio, FechaPagoReal)
-                    VALUES (?, ?, ?, ?)
-                """, (pagos.IdContract, mes_actual, anio_actual, today))
+                    SELECT COUNT(*) FROM ContratosPagadosMes
+                    WHERE ContratoID = ? AND Mes = ? AND Anio = ?
+                """, (pagos.IdContract, mes_actual, anio_actual))
 
+                if cursor.fetchone()[0] == 0:
+                    # Registrar el contrato como pagado para el mes actual
+                    cursor.execute("""
+                        INSERT INTO ContratosPagadosMes (ContratoID, Mes, Anio, FechaPagoReal)
+                        VALUES (?, ?, ?, ?)
+                    """, (pagos.IdContract, mes_actual, anio_actual, today))
+
+                conn.commit()
+                conn.close()
+
+                return {"message": "Pago registrado exitosamente", "status": "Pagado", "deuda_pendiente": 0}
             conn.commit()
             conn.close()
-
-            return {"message": "Pago registrado exitosamente", "status": "Pagado", "deuda_pendiente": 0}
-
-        conn.commit()
-        conn.close()
-
-        return {"message": "Pago registrado exitosamente", "status": "Deuda pendiente", "deuda_pendiente": deuda_pendiente}
+            return {"message": "Pago registrado exitosamente", "status": "Deuda pendiente", "deuda_pendiente": deuda_pendiente}
+        else:
+            conn.commit()
+            conn.close()
+            return {"message": "Pago registrado exitosamente"}
+        
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

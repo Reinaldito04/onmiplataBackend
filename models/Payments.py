@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel,Field
 from typing import Optional
 
 class Pagos(BaseModel):
@@ -6,13 +6,14 @@ class Pagos(BaseModel):
     Date: str
     PaymentType: str
     IdContract: int
-
+    TypePay: Optional[str] = Field(default="Arrendamiento")
 
 class DetailsPagos(Pagos):
     Name: str
     Lastname: str
     DNI: str
     ID : int
+    
 
 class NextPayment(BaseModel):
     ContratoID: int
