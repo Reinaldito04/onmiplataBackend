@@ -10,10 +10,11 @@ class ContratoInquilino(BaseModel):
     FECHA_CONTRATO: str
     CANON: str
     DEPOSITO_EN_GARANTIA: str
-    CANONES_MENSUALES: List[dict]
+    CANONES_MENSUALES: List[Dict[str, str]]
     TOTAL_CONTRATO: str
-    DEPOSITOS_EFECTUADOS: List[dict]
+    DEPOSITOS_EFECTUADOS: List[Dict[str, str]]
     TOTAL_DEPOSITADO: str
+
 
 class Rentals(BaseModel):
     InquilinoName: str

@@ -8,12 +8,106 @@ from datetime import datetime,timedelta
 from db.db import create_connection
 from reports.Notificacionvehicular import generar_reporte as generarNotificacionVehicular
 from reports.PagosContrato import ContratoInquilinoExcel
+from datetime import datetime
+import calendar
+import locale
+
 router = APIRouter()
 
 
 
-@router.post("/report-pays")
-def generarReport(contrato: ContratoInquilino):
+locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')  # Ajusta según tu sistema operativo
+
+def month_year(date):
+    if isinstance(date, str):
+        date = datetime.strptime(date, '%Y-%m-%d')  # Convertir la cadena a fecha si es necesario
+    month = calendar.month_name[date.month]
+    year = date.year
+    return f"{month.uppercase()}/{year}"
+
+@router.post("/report-pays/{id}")
+def generarReport(id: int):
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Obtener datos del contrato
+        cursor.execute("""
+            SELECT 
+                c.FechaInicio, c.FechaFin, c.Monto, c.Comision, c.FechaPrimerPago, c.DuracionMeses,
+                cl.Nombre, cl.Apellido, cl.Telefono, cl.Email,
+                i.Direccion AS DireccionInmueble, 
+                i.Tipo AS TipoInmueble, 
+                i.Descripcion AS DescripcionInmueble, 
+                i.Municipio AS MunicipioInmueble
+            FROM 
+                Contratos c
+                JOIN Clientes cl ON c.ClienteID = cl.ID
+                JOIN Inmuebles i ON c.InmuebleID = i.ID
+            WHERE 
+                c.ID = ?
+        """, (id,))
+        contrato_data = cursor.fetchone()
+        
+        if contrato_data is None:
+            raise HTTPException(status_code=404, detail="Contrato no encontrado")
+        
+        # Obtener pagos del contrato
+        cursor.execute("""
+            SELECT FechaPago, Monto
+            FROM Pagos
+            WHERE ContratoID = ? AND TipoPago = 'Arrendamiento'
+        """, (id,))
+        pagos_data = cursor.fetchall()
+        cursor.execute("""
+                       SELECT FechaPago,Monto FROM
+                       Pagos WHERE ContratoID =? AND TipoPago = 'Deposito De Garantia'
+                       """,(id,))
+        garantiaDeposito = cursor.fetchall()
+        GarantiaSum = sum(garantia[1] for garantia in garantiaDeposito)
+
+        # Crear una lista con los montos de los pagos formateados
+        canones_mensuales = [
+    {"CANON MES": f"{datetime.strptime(pago[0], '%Y-%m-%d').strftime('%B').upper()}/{datetime.strptime(pago[0], '%Y-%m-%d').strftime('%Y')}", "Cantidad": f"{pago[1]:,.2f}"}
+    for pago in pagos_data
+]
+        
+        # Crear una lista con los depósitos efectuados formateados
+        depositos_efectuados = [
+            {"Fecha": pago[0], "MODALIDAD": "EFECTIVO", "Cantidad": f"USD {pago[1]:,.2f}"}
+            for pago in pagos_data
+        ]
+
+        # Calcular los totales
+        total_contrato = f"USD {sum(pago[1] for pago in pagos_data):,.2f}"
+        total_depositado = f"USD {sum(pago[1] for pago in pagos_data):,.2f}"
+        
+        # Mapear datos del contrato a ContratoInquilino
+        contrato = ContratoInquilino(
+            INQUILINO=f"{contrato_data[6]} {contrato_data[7]}",
+            N_CONTACTO=contrato_data[8],
+            CORREO=contrato_data[9],
+            INMUEBLE=str(contrato_data[10]),  # Ajusta esto según tu tabla de inmuebles
+            FECHA_CONTRATO=contrato_data[0],
+            CANON=str(contrato_data[2]),
+            DEPOSITO_EN_GARANTIA=str(GarantiaSum),  # Ajusta esto según tu lógica
+            CANONES_MENSUALES=canones_mensuales,
+            TOTAL_CONTRATO=total_contrato,
+            DEPOSITOS_EFECTUADOS=depositos_efectuados,
+            TOTAL_DEPOSITADO=total_depositado
+        )
+        
+        # Llamar a la función generarExcel con el contrato
+        response = generarExcel(contrato)
+        
+        return response
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al consultar la base de datos: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
+def generarExcel(contrato: ContratoInquilino):
     try:
         # Crear instancia de la clase de Excel
         contrato_excel = ContratoInquilinoExcel("contrato_inquilino.xlsx")
@@ -38,18 +132,16 @@ def generarReport(contrato: ContratoInquilino):
         
         # Generar el nombre del archivo basado en la fecha y hora actual 
         # Generar el archivo Excel en la ruta especificada
-       
         nombre_archivo_output_path = contrato_excel.write_to_excel(output_path=output_base_path)
         nombre_archivo = nombre_archivo_output_path["nombre_archivo"]
         output_path = nombre_archivo_output_path["output_path"]
                 
         # Devolver un mensaje de éxito con el nombre del archivo creado
-        return {"message": f"Archivo '{nombre_archivo}' creado exitosamente en '{output_path}'."}
+        return {"message": f"Archivo '{nombre_archivo}', creado  '{output_path}'",
+                "file_path": output_path}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al generar el reporte: {str(e)}")
-
-
 
 @router.post("/inmueble-entrega")
 def entrega_inmueble(inmueble : EntregaInmueble):
