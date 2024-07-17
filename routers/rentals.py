@@ -138,14 +138,19 @@ async def get_contracts_expiring():
 
         contracts = []
         for row in result:
+            
+            date_obj = datetime.strptime(row[5], '%Y-%m-%d')
+            formatted_date = date_obj.strftime('%d/%m/%Y')
+            date_obj2 = datetime.strptime(row[6], '%Y-%m-%d')
+            formatted_date2 = date_obj2.strftime('%d/%m/%Y')
             contract = ContractDetails(
                 ClienteNombre=row[0],
                 ClienteApellido=row[1],
                 PropietarioNombre=row[2],
                 PropietarioApellido=row[3],
                 InmuebleDireccion=row[4],
-                FechaInicio=row[5],
-                FechaFin=row[6],
+                FechaInicio=formatted_date,
+                FechaFin=formatted_date2,
                 ContratoID=row[7],
                 CedulaPropietario=row[8],
                 CedulaCliente=row[9],
@@ -265,14 +270,18 @@ def get_contracts():
 
     contracts = []
     for row in result:
+        date_obj = datetime.strptime(row[5], '%Y-%m-%d')
+        formatted_date = date_obj.strftime('%d/%m/%Y')
+        date_obj2 = datetime.strptime(row[6], '%Y-%m-%d')
+        formatted_date2 = date_obj2.strftime('%d/%m/%Y')
         contract = ContractDetails(
             ClienteNombre=row[0],
             ClienteApellido=row[1],
             PropietarioNombre=row[2],
             PropietarioApellido=row[3],
             InmuebleDireccion=row[4],
-            FechaInicio=row[5],
-            FechaFin=row[6],
+            FechaInicio=formatted_date,
+            FechaFin=formatted_date2,
             ContratoID=row[7],
             CedulaPropietario=row[8],
             CedulaCliente=row[9],

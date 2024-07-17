@@ -9,6 +9,7 @@ dnspython==2.6.1
 docxcompose==1.4.0
 docxtpl==0.17.0
 email_validator==2.1.1
+et-xmlfile==1.1.0
 exceptiongroup==1.2.1
 fastapi==0.111.0
 fastapi-cli==0.0.4
@@ -23,7 +24,10 @@ lxml==5.2.2
 markdown-it-py==3.0.0
 MarkupSafe==2.1.5
 mdurl==0.1.2
+numpy==2.0.0
+openpyxl==3.1.5
 orjson==3.10.4
+pandas==2.2.2
 pillow==10.3.0
 pydantic==2.7.3
 pydantic_core==2.18.4
@@ -35,6 +39,7 @@ python-dateutil==2.9.0.post0
 python-docx==1.1.2
 python-dotenv==1.0.1
 python-multipart==0.0.9
+pytz==2024.1
 PyYAML==6.0.1
 reportlab==4.2.0
 requests==2.32.3
@@ -46,6 +51,7 @@ SQLAlchemy==2.0.30
 starlette==0.37.2
 typer==0.12.3
 typing_extensions==4.12.2
+tzdata==2024.1
 ujson==5.10.0
 urllib3==2.2.1
 uvicorn==0.30.1

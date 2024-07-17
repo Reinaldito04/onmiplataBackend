@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from models.Rentals import Rentals, ContractDetails,ReportData,notificacionInquilino,ReporteNotificacion,CrearInquilinoReporte,EntregaInmueble
+from models.Rentals import Rentals, ContractDetails,ReportData,notificacionInquilino,ReporteNotificacion,CrearInquilinoReporte,EntregaInmueble,ContratoInquilino
 import os
 from reports.Contrato import generar_reporte
 from pydantic import ValidationError
@@ -7,7 +7,47 @@ from typing import List
 from datetime import datetime,timedelta
 from db.db import create_connection
 from reports.Notificacionvehicular import generar_reporte as generarNotificacionVehicular
+from reports.PagosContrato import ContratoInquilinoExcel
 router = APIRouter()
+
+
+
+@router.post("/report-pays")
+def generarReport(contrato: ContratoInquilino):
+    try:
+        # Crear instancia de la clase de Excel
+        contrato_excel = ContratoInquilinoExcel("contrato_inquilino.xlsx")
+        
+        # Configurar datos del contrato desde el body de la solicitud
+        contrato_excel.set_datos_inquilino({
+            "INQUILINO": contrato.INQUILINO,
+            "N° CONTACTO": contrato.N_CONTACTO,
+            "CORREO": contrato.CORREO,
+            "INMUEBLE": contrato.INMUEBLE,
+            "FECHA DE CONTRATO": contrato.FECHA_CONTRATO,
+            "CANON": contrato.CANON,
+            "DEPOSITO EN GARANTIA": contrato.DEPOSITO_EN_GARANTIA
+        })
+        contrato_excel.set_canones_mensuales(contrato.CANONES_MENSUALES)
+        contrato_excel.set_total_contrato(contrato.TOTAL_CONTRATO)
+        contrato_excel.set_depositos_efectuados(contrato.DEPOSITOS_EFECTUADOS)
+        contrato_excel.set_total_depositado(contrato.TOTAL_DEPOSITADO)
+        
+        # Ruta base para guardar los reportes
+        output_base_path = 'reports/output'
+        
+        # Generar el nombre del archivo basado en la fecha y hora actual 
+        # Generar el archivo Excel en la ruta especificada
+       
+        nombre_archivo_output_path = contrato_excel.write_to_excel(output_path=output_base_path)
+        nombre_archivo = nombre_archivo_output_path["nombre_archivo"]
+        output_path = nombre_archivo_output_path["output_path"]
+                
+        # Devolver un mensaje de éxito con el nombre del archivo creado
+        return {"message": f"Archivo '{nombre_archivo}' creado exitosamente en '{output_path}'."}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al generar el reporte: {str(e)}")
 
 
 

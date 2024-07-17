@@ -33,13 +33,15 @@ async def get_birthdays():
     birthdays_list = []
 
     for client in clients_birthdays:
+        date_obj = datetime.strptime(client[5], '%Y-%m-%d')
+        formatted_date = date_obj.strftime('%d/%m/%Y')
         client_dict = {
             "id": client[0],
             "name": client[1],
             "lastName": client[2],
             "dni": client[3],
             "rif": client[4],
-            "birthdate": client[5],
+            "birthdate": formatted_date,
             "phone": client[6],
             "email": client[7],
             "type": "Cliente"
@@ -76,13 +78,15 @@ async def get_inquilinos():
     # Convertir los resultados a una lista de diccionarios
     clients_list = []
     for client in clients:
+        date_obj = datetime.strptime(client[5], '%Y-%m-%d')
+        formatted_date = date_obj.strftime('%d/%m/%Y')
         client_dict = {
             "id": client[0],
             "name": client[1],
             "lastName": client[2],
             "dni": client[3],
             "rif": client[4],
-            "birthdate": client[5],
+            "birthdate": formatted_date,
             "phone": client[6],
             "email": client[7]
         }
@@ -227,14 +231,15 @@ async def get_clients():
         imagenCedula = client[10]
         if (imagenCedula is None):
             imagenCedula = "No tiene imagen"
-
+        date_obj = datetime.strptime(client[5], '%Y-%m-%d')
+        formatted_date = date_obj.strftime('%d/%m/%Y')
         client_dict = {
             "id": client[0],
             "name": client[1],
             "lastName": client[2],
             "dni": client[3],
             "rif": client[4],
-            "birthdate": client[5],
+            "birthdate": formatted_date,
             "address": client[6],
             "codePostal": client[7],
             "phone": client[8],
@@ -261,13 +266,15 @@ async def get_client(id: int):
         raise HTTPException(status_code=404, detail="Client not found")
 
     # Convertir el resultado a un diccionario
+    date_obj = datetime.strptime(client[5], '%Y-%m-%d')
+    formatted_date = date_obj.strftime('%d/%m/%Y')
     client_dict = {
         "id": client[0],
         "name": client[1],
         "lastName": client[2],
         "dni": client[3],
         "rif": client[4],
-        "birthdate": client[5],
+        "birthdate": formatted_date,
         "address": client[6],
         "codePostal": client[7],
         "phone": client[8],

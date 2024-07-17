@@ -2,6 +2,19 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict
 
 
+class ContratoInquilino(BaseModel):
+    INQUILINO: str
+    N_CONTACTO: str
+    CORREO: str
+    INMUEBLE: str
+    FECHA_CONTRATO: str
+    CANON: str
+    DEPOSITO_EN_GARANTIA: str
+    CANONES_MENSUALES: List[dict]
+    TOTAL_CONTRATO: str
+    DEPOSITOS_EFECTUADOS: List[dict]
+    TOTAL_DEPOSITADO: str
+
 class Rentals(BaseModel):
     InquilinoName: str
     InquilinoLastName: str

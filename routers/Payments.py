@@ -55,9 +55,11 @@ def get_gestion():
     gestionList = []
 
     for row in rows:
+        date_obj = datetime.strptime(row[1], '%Y-%m-%d')
+        formatted_date = date_obj.strftime('%d/%m/%Y')
         gestionList.append({
             "GestionCobroID": row[0],
-            "FechaCobro": row[1],
+            "FechaCobro": formatted_date,
             "ContratoID": row[2],
             "Concepto": row[3],
             "ContratoID": row[4],
@@ -84,14 +86,17 @@ def get_paysIndividual(id : int):
     rows = cursor.fetchall()
     conn.close()
     paymentList = []
+    
 
     for row in rows:
+        date_obj = datetime.strptime(row[2], '%Y-%m-%d')
+        formatted_date = date_obj.strftime('%d/%m/%Y')
         paymentList.append({
             "ID": row[0],
-            "Para": row[1],
-            "Monto": row[2],
-            "FechaPago": row[3],
-            "ContratoID": row[4],
+            "ContratoID": row[1],
+            "Fecha": formatted_date,
+            "Monto": row[3],
+            "Para": row[4],
             "TipoPago": row[5]
         })
     if not paymentList:
@@ -133,12 +138,15 @@ def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal
 
         pagos = []
         for row in result:
+            
+            date_obj = datetime.strptime(row[4], '%Y-%m-%d')
+            formatted_date = date_obj.strftime('%d/%m/%Y')
             pago = DetailsPagos(
                 Name=row[0],
                 Lastname=row[1],
                 DNI=row[2],
                 Amount=row[3],
-                Date=row[4],
+                Date=formatted_date,
                 IdContract=row[5],
                 PaymentType=payment_type,
                 ID=row[6],
@@ -224,12 +232,15 @@ def get_next_payments():
             # Calcular el siguiente pago (asumiendo que los pagos son mensuales)
             siguiente_pago = primer_pago + timedelta(days=30 * meses_transcurridos)
             estado = "Deuda pendiente" if deuda_pendiente > 0 else "Pagado"
-
+            date_obj = datetime.strptime(primer_pago, '%Y-%m-%d')
+            date_objSegundo = datetime.strptime(siguiente_pago,'%Y-%m-%d')
+            formatted_date = date_objSegundo.strftime('%d/%m/%Y')
+            formatedd_dateSegundo =date_objSegundo.strftime('%d/%m/%Y')
             # Crear el objeto NextPayment
             next_payment = NextPayment(
                 ContratoID=contrato_id,
-                PrimerPago=primer_pago.strftime('%Y-%m-%d'),
-                SiguientePago=siguiente_pago.strftime('%Y-%m-%d'),
+                PrimerPago=formatted_date,
+                SiguientePago=formatedd_dateSegundo,
                 Estado=estado,
                 Monto=monto_contrato,
                 ClienteNombre=cliente_nombre,
@@ -258,8 +269,6 @@ def pay_rental(pagos: Pagos):
     try:
         conn = create_connection()
         cursor = conn.cursor()
-
-        # Insertar el pago en la tabla de Pagos
         cursor.execute("""
             INSERT INTO Pagos (ContratoID, FechaPago, Monto, Para,TipoPago)
             VALUES (?, ?, ?, ?,?)
