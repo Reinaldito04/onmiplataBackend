@@ -97,7 +97,8 @@ def get_paysIndividual(id : int):
             "Fecha": formatted_date,
             "Monto": row[3],
             "Para": row[4],
-            "TipoPago": row[5]
+            "TipoPago": row[5],
+            "Metodo": row[6]
         })
     if not paymentList:
         return []
@@ -112,7 +113,7 @@ def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal
         if type == "Empresa":
             consulta = """
             SELECT Clientes.Nombre, Clientes.Apellido, Clientes.DNI,
-                   Pagos.Monto, Pagos.FechaPago, Pagos.ContratoID,Pagos.ID,Pagos.TipoPago
+                   Pagos.Monto, Pagos.FechaPago, Pagos.ContratoID,Pagos.ID,Pagos.TipoPago,Pagos.Metodo
             FROM Contratos
             INNER JOIN Clientes ON Contratos.ClienteID = Clientes.ID
             INNER JOIN Pagos ON Pagos.ContratoID = Contratos.ID
@@ -122,7 +123,7 @@ def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal
         elif type == "Personal":
             consulta = """
             SELECT Propietarios.Nombre, Propietarios.Apellido, Propietarios.DNI,
-                   Pagos.Monto, Pagos.FechaPago, Pagos.ContratoID,Pagos.ID,Pagos.TipoPago
+                   Pagos.Monto, Pagos.FechaPago, Pagos.ContratoID,Pagos.ID,Pagos.TipoPago,Pagos.Metodo
             FROM Contratos
             INNER JOIN Propietarios ON Contratos.PropietarioID = Propietarios.ID
             INNER JOIN Pagos ON Pagos.ContratoID = Contratos.ID
@@ -150,7 +151,8 @@ def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal
                 IdContract=row[5],
                 PaymentType=payment_type,
                 ID=row[6],
-                TypePay=row[7]
+                TypePay=row[7],
+                PaymentMethod=row[8]
             )
             pagos.append(pago)
 
@@ -270,9 +272,9 @@ def pay_rental(pagos: Pagos):
         conn = create_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO Pagos (ContratoID, FechaPago, Monto, Para,TipoPago)
-            VALUES (?, ?, ?, ?,?)
-        """, (pagos.IdContract, pagos.Date, pagos.Amount, pagos.PaymentType,pagos.TypePay))
+            INSERT INTO Pagos (ContratoID, FechaPago, Monto, Para,TipoPago,Metodo)
+            VALUES (?, ?, ?, ?,?,?)
+        """, (pagos.IdContract, pagos.Date, pagos.Amount, pagos.PaymentType,pagos.TypePay,pagos.PaymentMethod))
 
         # Calcular el monto total del contrato y la fecha de primer pago
         if (pagos.TypePay == 'Arrendamiento'):

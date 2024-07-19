@@ -81,14 +81,14 @@ def generarReport(id: int):
         # Calcular los totales
         total_contrato = f"USD {sum(pago[1] for pago in pagos_data):,.2f}"
         total_depositado = f"USD {sum(pago[1] for pago in pagos_data):,.2f}"
-        
+        fechaContrato = f"{contrato_data[0]} AL {contrato_data[1]}"
         # Mapear datos del contrato a ContratoInquilino
         contrato = ContratoInquilino(
             INQUILINO=f"{contrato_data[6]} {contrato_data[7]}",
             N_CONTACTO=contrato_data[8],
             CORREO=contrato_data[9],
             INMUEBLE=str(contrato_data[10]),  # Ajusta esto según tu tabla de inmuebles
-            FECHA_CONTRATO=contrato_data[0],
+            FECHA_CONTRATO=fechaContrato,
             CANON=str(contrato_data[2]),
             DEPOSITO_EN_GARANTIA=str(GarantiaSum),  # Ajusta esto según tu lógica
             CANONES_MENSUALES=canones_mensuales,

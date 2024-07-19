@@ -7,6 +7,8 @@ class Pagos(BaseModel):
     PaymentType: str
     IdContract: int
     TypePay: Optional[str] = Field(default="Arrendamiento")
+    PaymentMethod: Optional[str]
+    
 
 class DetailsPagos(Pagos):
     Name: str
