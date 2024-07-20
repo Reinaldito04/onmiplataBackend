@@ -6,6 +6,18 @@ from datetime import datetime, timedelta
 router = APIRouter()
 
 
+@router.delete('/deletePay/{id}')
+def delete_pay(id: int):
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM Pagos WHERE ID =?", (id,))
+    conn.commit()
+    conn.close()
+    return {
+        "message": "Payment deleted successfully"
+    }
+    
+
 @router.post("/gestionPays")
 def pay_gestion(gestion: GestionPago):
     conn = create_connection()

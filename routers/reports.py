@@ -54,7 +54,7 @@ def generarReport(id: int):
         
         # Obtener pagos del contrato
         cursor.execute("""
-            SELECT FechaPago, Monto
+            SELECT FechaPago, Monto, Metodo
             FROM Pagos
             WHERE ContratoID = ? AND TipoPago = 'Arrendamiento'
         """, (id,))
@@ -68,13 +68,13 @@ def generarReport(id: int):
 
         # Crear una lista con los montos de los pagos formateados
         canones_mensuales = [
-    {"CANON MES": f"{datetime.strptime(pago[0], '%Y-%m-%d').strftime('%B').upper()}/{datetime.strptime(pago[0], '%Y-%m-%d').strftime('%Y')}", "Cantidad": f"{pago[1]:,.2f}"}
-    for pago in pagos_data
-]
+            {"CANON MES": f"{datetime.strptime(pago[0], '%Y-%m-%d').strftime('%B').upper()}/{datetime.strptime(pago[0], '%Y-%m-%d').strftime('%Y')}", "Cantidad": f"USD {pago[1]:,.2f}"}
+            for pago in pagos_data
+        ]
         
         # Crear una lista con los depósitos efectuados formateados
         depositos_efectuados = [
-            {"Fecha": pago[0], "MODALIDAD": "EFECTIVO", "Cantidad": f"USD {pago[1]:,.2f}"}
+            {"Fecha": pago[0], "MODALIDAD": pago[2].upper(), "Cantidad": f"USD {pago[1]:,.2f}"}
             for pago in pagos_data
         ]
 
