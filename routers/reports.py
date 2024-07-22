@@ -84,6 +84,7 @@ def generarReportForYear(year: int = Query(..., description="Año para filtrar l
     except Exception as e:
         conn.close()
         raise HTTPException(status_code=500, detail=str(e))
+@router.post('/report-pays/{id}')
 def generarReport(id: int):
     conn = create_connection()
     cursor = conn.cursor()
