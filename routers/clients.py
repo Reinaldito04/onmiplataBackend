@@ -225,14 +225,25 @@ async def get_clients():
     clients = cursor.fetchall()
     conn.close()
 
-    # Convertir los resultados a una lista de diccionarios
     clients_list = []
     for client in clients:
         imagenCedula = client[10]
-        if (imagenCedula is None):
+        if imagenCedula is None:
             imagenCedula = "No tiene imagen"
-        date_obj = datetime.strptime(client[5], '%Y-%m-%d')
-        formatted_date = date_obj.strftime('%d/%m/%Y')
+
+        # Intentar parsear la fecha de nacimiento en diferentes formatos
+        birthdate = client[5]
+        date_formats = ['%Y-%m-%d', '%d/%m/%Y']
+        for fmt in date_formats:
+            try:
+                date_obj = datetime.strptime(birthdate, fmt)
+                formatted_date = date_obj.strftime('%d/%m/%Y')
+                break
+            except ValueError:
+                continue
+        else:
+            formatted_date = "Fecha inválida"  # Manejo de error si no se puede parsear la fecha
+
         client_dict = {
             "id": client[0],
             "name": client[1],
