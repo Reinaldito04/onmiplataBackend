@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException,Query
 from models.Rentals import Rentals, ContractDetails,ReportData,notificacionInquilino,ReporteNotificacion,CrearInquilinoReporte,EntregaInmueble,ContratoInquilino
 import os
 from reports.Contrato import generar_reporte
@@ -10,6 +10,7 @@ from reports.Notificacionvehicular import generar_reporte as generarNotificacion
 from reports.PagosContrato import ContratoInquilinoExcel
 from datetime import datetime
 import calendar
+from reports.PagosReport import PagosExcel
 import locale
 
 router = APIRouter()
@@ -18,14 +19,72 @@ router = APIRouter()
 
 locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')  # Ajusta según tu sistema operativo
 
-def month_year(date):
-    if isinstance(date, str):
-        date = datetime.strptime(date, '%Y-%m-%d')  # Convertir la cadena a fecha si es necesario
-    month = calendar.month_name[date.month]
-    year = date.year
-    return f"{month.uppercase()}/{year}"
+def format_date(date_str: str) -> str:
+    """Convierte la fecha en formato DD/MM/YYYY."""
+    try:
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d")  # Ajusta el formato de entrada si es necesario
+        return date_obj.strftime("%d/%m/%Y")
+    except ValueError:
+        return date_str  # Devuelve la fecha original si no se puede convertir
 
-@router.post("/report-pays/{id}")
+@router.post('/report-pays-year')
+def generarReportForYear(year: int = Query(..., description="Año para filtrar los pagos"),
+                       Para: str = Query(..., description="Pago para Empresa o Personal")):
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        
+        if Para == 'Empresa':
+            cursor.execute("""
+                SELECT Pagos.*, Clientes.Nombre, Clientes.Apellido,Clientes.DNI
+                FROM Pagos
+                INNER JOIN Contratos ON Pagos.ContratoID = Contratos.ID
+                INNER JOIN Clientes ON Contratos.ClienteID = Clientes.ID
+                WHERE strftime('%Y', Pagos.FechaPago) = ? AND Pagos.Para = ?
+            """, (str(year), Para))
+        elif Para == 'Personal':
+            cursor.execute("""
+                SELECT Pagos.*, Propietarios.Nombre, Propietarios.Apellido,Propietarios.DNI
+                FROM Pagos
+                INNER JOIN Contratos ON Pagos.ContratoID = Contratos.ID
+                INNER JOIN Propietarios ON Contratos.PropietarioID = Propietarios.ID
+                WHERE strftime('%Y', Pagos.FechaPago) = ? AND Pagos.Para = ?
+            """, (str(year), Para))
+        else:
+            raise HTTPException(status_code=400, detail="Parámetro 'Para' no válido")
+
+        pays = cursor.fetchall()
+        conn.close()
+        
+        if not pays:
+            return {"message": "No payments found for the specified year."}
+        pagos = []
+        for pay in pays:
+            pagos.append({
+                "ID": pay[0],
+                "IdContract": pay[1],
+                "Date": format_date(pay[2]),
+                "Amount": pay[3],
+                "PaymentType": pay[4],
+                "TypePay": pay[5],
+                "PaymentMethod": pay[6],
+                "Name": pay[7],
+                "Lastname": pay[8],
+                "DNI" :pay[9] 
+            })
+        output_base_path = 'reports/output'   
+        excel = PagosExcel(output_base_path)
+        excel.set_data(pagos)
+        excel.set_year(f'{year}')
+        nombre_archivo_output_path=excel.write_to_excel(output_base_path)
+        
+        return nombre_archivo_output_path
+    
+    
+    except Exception as e:
+        conn.close()
+        raise HTTPException(status_code=500, detail=str(e))
+@router.post('/report-pays/{id}')
 def generarReport(id: int):
     conn = create_connection()
     cursor = conn.cursor()
@@ -54,7 +113,7 @@ def generarReport(id: int):
         
         # Obtener pagos del contrato
         cursor.execute("""
-            SELECT FechaPago, Monto
+            SELECT FechaPago, Monto, Metodo
             FROM Pagos
             WHERE ContratoID = ? AND TipoPago = 'Arrendamiento'
         """, (id,))
@@ -68,27 +127,27 @@ def generarReport(id: int):
 
         # Crear una lista con los montos de los pagos formateados
         canones_mensuales = [
-    {"CANON MES": f"{datetime.strptime(pago[0], '%Y-%m-%d').strftime('%B').upper()}/{datetime.strptime(pago[0], '%Y-%m-%d').strftime('%Y')}", "Cantidad": f"{pago[1]:,.2f}"}
-    for pago in pagos_data
-]
+            {"CANON MES": f"{datetime.strptime(pago[0], '%Y-%m-%d').strftime('%B').upper()}/{datetime.strptime(pago[0], '%Y-%m-%d').strftime('%Y')}", "Cantidad": f"USD {pago[1]:,.2f}"}
+            for pago in pagos_data
+        ]
         
         # Crear una lista con los depósitos efectuados formateados
         depositos_efectuados = [
-            {"Fecha": pago[0], "MODALIDAD": "EFECTIVO", "Cantidad": f"USD {pago[1]:,.2f}"}
+            {"Fecha": pago[0], "MODALIDAD": pago[2].upper(), "Cantidad": f"USD {pago[1]:,.2f}"}
             for pago in pagos_data
         ]
 
         # Calcular los totales
         total_contrato = f"USD {sum(pago[1] for pago in pagos_data):,.2f}"
         total_depositado = f"USD {sum(pago[1] for pago in pagos_data):,.2f}"
-        
+        fechaContrato = f"{contrato_data[0]} AL {contrato_data[1]}"
         # Mapear datos del contrato a ContratoInquilino
         contrato = ContratoInquilino(
             INQUILINO=f"{contrato_data[6]} {contrato_data[7]}",
             N_CONTACTO=contrato_data[8],
             CORREO=contrato_data[9],
             INMUEBLE=str(contrato_data[10]),  # Ajusta esto según tu tabla de inmuebles
-            FECHA_CONTRATO=contrato_data[0],
+            FECHA_CONTRATO=fechaContrato,
             CANON=str(contrato_data[2]),
             DEPOSITO_EN_GARANTIA=str(GarantiaSum),  # Ajusta esto según tu lógica
             CANONES_MENSUALES=canones_mensuales,
