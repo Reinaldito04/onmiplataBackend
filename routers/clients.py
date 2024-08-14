@@ -310,6 +310,10 @@ async def add_client(client: Propietarios):
     conn = create_connection()
     cursor = conn.cursor()
 
+    # Si no se proporciona RIF, usar el valor de DNI
+    if not client.rif:
+        client.rif = client.dni
+
     # Verificar si ya existe un cliente con el mismo DNI
     cursor.execute("SELECT * FROM Propietarios WHERE DNI = ?", (client.dni,))
     existing_client = cursor.fetchone()
@@ -319,6 +323,7 @@ async def add_client(client: Propietarios):
         raise HTTPException(
             status_code=400, detail="Propietario with this DNI already exists")
 
+    # Verificar si ya existe un cliente con el mismo RIF
     cursor.execute("SELECT * FROM Propietarios WHERE RIF =?", (client.rif,))
     existing_client_rif = cursor.fetchone()
     if existing_client_rif:
@@ -326,7 +331,6 @@ async def add_client(client: Propietarios):
         raise HTTPException(
             status_code=400, detail="Propietario with this RIF already exists")
 
-    # Insertar nuevo cliente si no existe
     cursor.execute(
         "INSERT INTO Propietarios (Nombre, Apellido, DNI, RIF, FechaNacimiento, Telefono, Email, CodigoPostal, Direccion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (client.name, client.lastName, client.dni, client.rif,
