@@ -138,7 +138,7 @@ async def get_contracts_expiring():
 
         contracts = []
         for row in result:
-            
+
             date_obj = datetime.strptime(row[5], '%Y-%m-%d')
             formatted_date = date_obj.strftime('%d/%m/%Y')
             date_obj2 = datetime.strptime(row[6], '%Y-%m-%d')
@@ -195,7 +195,8 @@ def renew_contract(contract: ContractRenew):
         # Calcula la duración en meses
         fecha_inicio = datetime.strptime(contract.FechaInicio, '%Y-%m-%d')
         fecha_fin = datetime.strptime(contract.FechaFin, '%Y-%m-%d')
-        duracion_meses = (fecha_fin.year - fecha_inicio.year) * 12 + fecha_fin.month - fecha_inicio.month
+        duracion_meses = (fecha_fin.year - fecha_inicio.year) * \
+            12 + fecha_fin.month - fecha_inicio.month
 
         # Ejemplo de sentencia UPDATE
         cursor.execute("""
@@ -206,9 +207,10 @@ def renew_contract(contract: ContractRenew):
                 DuracionMeses = ?
             WHERE ID = ?
         """, (contract.FechaInicio, contract.FechaFin, contract.Monto, duracion_meses, contract.ID))
-        
-        cursor.execute("DELETE FROM Comisiones WHERE IDContracto=?", (contract.ID,))
-        
+
+        cursor.execute(
+            "DELETE FROM Comisiones WHERE IDContracto=?", (contract.ID,))
+
         for fecha in contract.comisiones:
             cursor.execute(
                 "INSERT INTO Comisiones (IDContracto, Fecha) VALUES (?, ?)",
@@ -224,7 +226,6 @@ def renew_contract(contract: ContractRenew):
         print(f"Error al renovar el contrato: {e}")
         raise HTTPException(
             status_code=500, detail="Error al renovar el contrato")
-
 
 
 @router.get("/contracts/Vencidos", response_model=List[ContractDetails])
@@ -378,18 +379,27 @@ def agg_contract(arriendo: Rentals):
     cursor = conn.cursor()
 
     try:
-        # Inserta el cliente
+        # Verifica si el cliente ya existe por DNI o Email
         cursor.execute(
-            "INSERT INTO Clientes (Nombre, Apellido, DNI, RIF, FechaNacimiento, Telefono, Email) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (arriendo.InquilinoName, arriendo.InquilinoLastName, arriendo.InquilinoDNI,
-             arriendo.InquilinoRIF, arriendo.InquilinoBirthday, arriendo.Telefono, arriendo.InquilinoMail)
+            "SELECT ID FROM Clientes WHERE DNI = ? OR Email = ?",
+            (arriendo.InquilinoDNI, arriendo.InquilinoMail)
         )
+        existing_client = cursor.fetchone()
 
-        # Obtén el ID del cliente insertado
-        client_id = cursor.lastrowid
+        if existing_client:
+            client_id = existing_client[0]
+        else:
+            # Inserta el cliente si no existe
+            cursor.execute(
+                "INSERT INTO Clientes (Nombre, Apellido, DNI, RIF, FechaNacimiento, Telefono, Email) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (arriendo.InquilinoName, arriendo.InquilinoLastName, arriendo.InquilinoDNI,
+                 arriendo.InquilinoRIF, arriendo.InquilinoBirthday, arriendo.Telefono, arriendo.InquilinoMail)
+            )
+            # Obtén el ID del cliente insertado
+            client_id = cursor.lastrowid
 
-        # Confirma la transacción
-        conn.commit()
+            # Confirma la transacción
+            conn.commit()
 
         # Divide el dato de InmuebleData
         cedula, direccion = arriendo.InmuebleData.split(' --- ')
@@ -441,7 +451,7 @@ def agg_contract(arriendo: Rentals):
         # Confirma la transacción para las comisiones
         conn.commit()
 
-        return {"client_id": client_id, "message": "Cliente agregado exitosamente"}
+        return {"client_id": client_id, "message": "Contrato agregado exitosamente"}
 
     except Exception as e:
         conn.rollback()

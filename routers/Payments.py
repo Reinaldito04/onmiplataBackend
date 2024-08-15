@@ -276,7 +276,104 @@ def get_next_payments():
 
 
 
+@router.get("/getPendingPayments")
+def get_pending_payments():
+    conn = create_connection()
+    cursor = conn.cursor()
 
+    try:
+        cursor.execute("""
+            SELECT 
+                C.ID AS ContratoID,
+                C.Monto AS MontoContrato,
+                CL.ID AS ClienteID,
+                CL.Nombre AS ClienteNombre,
+                CL.Apellido AS ClienteApellido,
+                CL.DNI AS ClienteDNI,
+                COALESCE(SUM(PG.Monto), 0) AS TotalPagado,
+                C.FechaPrimerPago AS FechaPrimerPago,
+                C.FechaFin AS FechaVencimiento,
+                I.Direccion AS InmuebleDireccion,
+                PR.Nombre AS PropietarioNombre,
+                PR.Apellido AS PropietarioApellido
+            FROM 
+                Contratos C
+            LEFT JOIN 
+                Pagos PG ON C.ID = PG.ContratoID AND PG.TipoPago = 'Arrendamiento'
+            INNER JOIN 
+                Clientes CL ON C.ClienteID = CL.ID
+            INNER JOIN 
+                Inmuebles I ON C.InmuebleID = I.ID
+            INNER JOIN 
+                Propietarios PR ON C.PropietarioID = PR.ID
+            WHERE 
+                C.Estado = 'Activo'
+            GROUP BY 
+                C.ID, CL.ID, I.ID, PR.ID
+            HAVING 
+                ((strftime('%Y', 'now') - strftime('%Y', C.FechaPrimerPago)) * 12 
+                + (strftime('%m', 'now') - strftime('%m', C.FechaPrimerPago))) > 0
+                AND (C.Monto * ((strftime('%Y', 'now') - strftime('%Y', C.FechaPrimerPago)) * 12 
+                + (strftime('%m', 'now') - strftime('%m', C.FechaPrimerPago)))) > COALESCE(SUM(PG.Monto), 0)
+        """)
+
+        deudas = cursor.fetchall()
+
+        if not deudas:
+            return {"message": "No hay pagos pendientes de deuda"}
+
+        response = []
+        for deuda in deudas:
+            contrato_id = deuda[0]
+            monto_contrato = deuda[1]
+            cliente_id = deuda[2]
+            cliente_nombre = deuda[3]
+            cliente_apellido = deuda[4]
+            cliente_dni = deuda[5]
+            total_pagado = deuda[6]
+            fecha_primer_pago = deuda[7]
+            fecha_vencimiento = deuda[8]
+            inmueble_direccion = deuda[9]
+            propietario_nombre = deuda[10]
+            propietario_apellido = deuda[11]
+
+            # Convertir la fecha de primer pago a un objeto datetime
+            fecha_primer_pago_dt = datetime.strptime(fecha_primer_pago, '%Y-%m-%d')
+            
+            # Extraer el día del primer pago
+            dia_primer_pago = fecha_primer_pago_dt.day
+
+            # Calcular meses transcurridos desde el primer pago
+            meses_transcurridos = (datetime.today().year - fecha_primer_pago_dt.year) * 12 + (datetime.today().month - fecha_primer_pago_dt.month)
+
+            # Calcular la deuda pendiente
+            deuda_pendiente = (monto_contrato * meses_transcurridos) - total_pagado
+
+            if deuda_pendiente > 0:
+                response.append({
+                    "ContratoID": contrato_id,
+                    "ClienteID": cliente_id,
+                    "ClienteNombre": cliente_nombre,
+                    "ClienteApellido": cliente_apellido,
+                    "ClienteDNI": cliente_dni,
+                    "MontoContrato": monto_contrato,
+                    "TotalPagado": total_pagado,
+                    "DeudaPendiente": deuda_pendiente,
+                    "FechaPrimerPago": fecha_primer_pago,
+                    "DiaPrimerPago": dia_primer_pago,  # Agregar el día del primer pago a la respuesta
+                    "FechaVencimiento": fecha_vencimiento,
+                    "InmuebleDireccion": inmueble_direccion,
+                    "PropietarioNombre": propietario_nombre,
+                    "PropietarioApellido": propietario_apellido
+                })
+
+        return response
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        conn.close()
 @router.post("/PayRental")
 def pay_rental(pagos: Pagos):
     

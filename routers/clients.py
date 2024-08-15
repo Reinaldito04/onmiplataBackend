@@ -67,6 +67,24 @@ async def get_birthdays():
 # Inquilinos
 
 
+@router.delete("/deleteInquilino/{ID}")
+async def delete_inquilino(ID: int):
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("DELETE FROM Clientes WHERE ID = ?", (ID,))
+        conn.commit()
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Inquilino no encontrado")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en la base de datos: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+        
+    return {"message": "Inquilino eliminado correctamente"}
+
 @router.get("/getInquilinos")
 async def get_inquilinos():
     conn = create_connection()
@@ -93,6 +111,73 @@ async def get_inquilinos():
         clients_list.append(client_dict)
 
     return clients_list
+
+@router.get("/getInquilino/{id}")
+async def get_inquilino_information(id: int):
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Consulta para obtener la información del inquilino, contratos, inmuebles, y propietarios
+        cursor.execute("""
+            SELECT 
+                C.Nombre AS InquilinoNombre,
+                C.Apellido AS InquilinoApellido,
+                C.DNI AS InquilinoDNI,
+                CO.FechaInicio,
+                CO.FechaFin,
+                CO.Monto,
+                CO.Comision,
+                I.Direccion AS InmuebleDireccion,
+                P.Nombre AS PropietarioNombre,
+                P.Apellido AS PropietarioApellido,
+                P.DNI AS PropietarioDNI,
+                CO.ID
+            FROM 
+                Contratos CO
+            INNER JOIN 
+                Clientes C ON CO.ClienteID = C.ID
+            INNER JOIN 
+                Inmuebles I ON CO.InmuebleID = I.ID
+            INNER JOIN 
+                Propietarios P ON I.PropietarioID = P.ID
+            WHERE 
+                C.ID = ?
+        """, (id,))
+        
+        contratos = cursor.fetchall()
+
+        if not contratos:
+            raise HTTPException(status_code=404, detail="Inquilino no encontrado o sin contratos")
+
+        # Formatear la respuesta
+        response = []
+        for contrato in contratos:
+            response.append({
+                "InquilinoNombre": contrato[0],
+                "InquilinoApellido": contrato[1],
+                "InquilinoDNI": contrato[2],
+                "FechaInicio": contrato[3],
+                "FechaFin": contrato[4],
+                "Monto": contrato[5],
+                "Comision": contrato[6],
+                "InmuebleDireccion": contrato[7],
+                "PropietarioNombre": contrato[8],
+                "PropietarioApellido": contrato[9],
+                "PropietarioDNI": contrato[10],
+                "ContratoID": contrato[11]
+            })
+
+        return response
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        conn.close()
+
+    
+    
 
 
 @router.post("/addInquilino")
@@ -339,4 +424,4 @@ async def add_client(client: Propietarios):
     conn.commit()
     conn.close()
 
-    return {"Message": "Client registered"}
+    return {"Message": "Client registered"} 
