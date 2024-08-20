@@ -89,7 +89,42 @@ def get_gestion():
     return gestionList
 
 
+@router.get('/getPaysInquilino/{id}')
+def get_paysInquilinos(id: int):
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    # Suponiendo que hay una relación entre Inquilino y Pagos a través de un Contrato.
+    cursor.execute("""
+        SELECT p.ID,p.ContratoID,p.FechaPago,p.Monto, p.Para,p.TipoPago,p.Metodo
+        from Pagos p 
+        inner join Contratos c on p.ContratoID = c.ID
+        where c.ClienteID = ?
+    """, (id,))
+    
+    rows = cursor.fetchall()
+    conn.close()
+    
+    paymentList = []
 
+    for row in rows:
+        date_obj = datetime.strptime(row[2], '%Y-%m-%d')
+        formatted_date = date_obj.strftime('%d/%m/%Y')
+        paymentList.append({
+            "ID": row[0],
+            "ContratoID": row[1],
+            "Fecha": formatted_date,
+            "Monto": row[3],
+            "Para": row[4],
+            "TipoPago": row[5],
+            "Metodo": row[6]
+        })
+    
+    if not paymentList:
+        raise HTTPException(status_code=404, detail="No payments found for this tenant.")
+    else :
+        return paymentList
+    
 @router.get("/getPays/{id}")
 def get_paysIndividual(id : int):
     conn = create_connection()

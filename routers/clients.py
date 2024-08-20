@@ -112,6 +112,16 @@ async def get_inquilinos():
 
     return clients_list
 
+@router.delete("/deleteInquilino/{id}")
+async def delete_inquilino(id : int):
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM Clientes WHERE ID = ?", (id,))
+    conn.commit()
+    conn.close()
+    return {"message": "Inquilino deleted successfully"}
+
+
 @router.get("/getInquilino/{id}")
 async def get_inquilino_information(id: int):
     conn = create_connection()

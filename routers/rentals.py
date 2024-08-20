@@ -381,7 +381,7 @@ def agg_contract(arriendo: Rentals):
     try:
         # Verifica si el cliente ya existe por DNI o Email
         cursor.execute(
-            "SELECT ID FROM Clientes WHERE DNI = ? OR Email = ?",
+            "SELECT ID FROM Clientes WHERE DNI = ? AND Email = ?",
             (arriendo.InquilinoDNI, arriendo.InquilinoMail)
         )
         existing_client = cursor.fetchone()
