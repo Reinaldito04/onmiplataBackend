@@ -24,6 +24,14 @@ class Service(BaseModel):
     Monto : float 
     Notas : str 
     
+    
+class Corpoelec(BaseModel):
+    idInmueble : int
+    NIC : str 
+    usuario : str 
+    password : str
+    CorreoPassword : str 
+     
 class payService(BaseModel):
     fecha: str 
     Monto : float 

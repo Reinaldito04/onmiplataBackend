@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, File, UploadFile, Form, Query
 from db.db import create_connection
-from models.Inmuebles import Inmueble, ImageInmueble, Service, payService
+from models.Inmuebles import Inmueble, ImageInmueble, Service, payService,Corpoelec
 from typing import List
 from pathlib import Path
 from datetime import datetime
@@ -196,6 +196,65 @@ async def delete_inmueble(ID: int):
 
 
 # SERVICIOS
+@router.get("/getCorpoelecData/{id}")
+async def get_corpoelec_data(id: int):
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    # Fetch the Corpoelec data for the given IDInmueble
+    cursor.execute("SELECT ID, Usuario, Clave, MailPassword, NIC FROM Corpoelec WHERE IDInmueble = ?", (id,))
+    corpoelec = cursor.fetchone()
+
+    # Close the connection
+    conn.close()
+
+    if corpoelec:
+        # If data is found, return it as a dictionary
+        return {
+            "ID": corpoelec[0],
+            "Usuario": corpoelec[1],
+            "Clave": corpoelec[2],
+            "MailPassword": corpoelec[3],
+            "NIC": corpoelec[4]
+        }
+    else:
+        # If no data is found, return a 404 error
+        raise HTTPException(status_code=404, detail="Corpoelec data not found")
+
+
+
+
+
+@router.post("/addCorpoelec")
+async def add_or_update_corpoelec(corpoelec: Corpoelec):
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    # Verificar si ya existe un registro con el mismo IDInmueble
+    cursor.execute("SELECT COUNT(*) FROM Corpoelec WHERE IDInmueble = ?", (corpoelec.idInmueble,))
+    result = cursor.fetchone()
+
+    if result[0] > 0:
+        # Si existe, actualizar el registro
+        cursor.execute(
+            "UPDATE Corpoelec SET Usuario = ?, Clave = ?, MailPassword = ?, NIC =? WHERE IDInmueble = ?",
+            (corpoelec.usuario, corpoelec.password, corpoelec.CorreoPassword, corpoelec.NIC, corpoelec.idInmueble)
+        )
+        message = "Actualizado correctamente"
+    else:
+        # Si no existe, insertar un nuevo registro
+        cursor.execute(
+            "INSERT INTO Corpoelec (IDInmueble, Usuario, Clave, MailPassword, NIC) VALUES (?, ?, ?, ?, ?)",
+            (corpoelec.idInmueble, corpoelec.usuario, corpoelec.password, corpoelec.CorreoPassword, corpoelec.NIC)
+        )
+        message = "Agregado correctamente"
+
+    conn.commit()
+    conn.close()
+
+    return {"Message": message}
+
+
 
 @router.get("/getServices")
 async def get_services(inmueble_id: int = Query(..., description="ID del inmueble")):
