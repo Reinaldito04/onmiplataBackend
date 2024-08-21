@@ -151,6 +151,49 @@ def get_paysIndividual(id : int):
         return []
     return paymentList
 
+@router.get('/getPaysGaranty')
+def get_paysGaranty():
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT Clientes.Nombre, Clientes.Apellido, Clientes.DNI,Propietarios.Nombre,Propietarios.Apellido,Propietarios.DNI,
+                   Pagos.Monto, Pagos.FechaPago, Pagos.ContratoID,Pagos.ID,Pagos.TipoPago,Pagos.Metodo
+            FROM Contratos
+            INNER JOIN Clientes ON Contratos.ClienteID = Clientes.ID
+			INNER JOIN Propietarios on Contratos.PropietarioID = Propietarios.ID
+            INNER JOIN Pagos ON Pagos.ContratoID = Contratos.ID WHERE TipoPago = 'Deposito De Garantia';
+    """, )
+    result = cursor.fetchall()
+    conn.close()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="No payments found for this tenant.")
+    pagos = []
+    for row in result :
+        date_obj = datetime.strptime(row[7], '%Y-%m-%d')
+        formatted_date = date_obj.strftime('%d/%m/%Y')
+        pago = {
+            "ClienteNombre": row[0],
+            "ClienteApellido": row[1],
+            "ClienteDNI" : row[2],
+            "PropietarioNombre": row[3],
+            "PropietarioApellido": row[4],
+            "PropietarioDNI": row[5],
+            "Monto": row[6],
+            "Fecha": formatted_date,
+            "IDContrato": row[8],
+            "ID": row[9],
+            "TipoPago": row[10],
+            "Metodo": row[11]
+        }
+        pagos.append(pago)
+    if not pagos :
+        return []
+    return pagos
+        
+
+    
+
 @router.get("/getPays", response_model=List[DetailsPagos])
 def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal")):
     try:
@@ -218,6 +261,8 @@ def get_pay(type: str = Query(..., description="Tipo de pago: Empresa o Personal
     finally:
         conn.close()
 # Función para obtener todos los meses entre dos fechas
+
+
 
 
 @router.get("/next-payments", response_model=List[NextPayment])
