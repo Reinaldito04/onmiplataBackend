@@ -84,11 +84,12 @@ def generarReportForYear(year: int = Query(..., description="Año para filtrar l
     except Exception as e:
         conn.close()
         raise HTTPException(status_code=500, detail=str(e))
-@router.post('/report-pays/{id}')
-def generarReport(id: int):
+    
+    
+def obtener_datos_contrato_y_pagos(id: int):
     conn = create_connection()
     cursor = conn.cursor()
-    
+
     try:
         # Obtener datos del contrato
         cursor.execute("""
@@ -111,6 +112,9 @@ def generarReport(id: int):
         if contrato_data is None:
             raise HTTPException(status_code=404, detail="Contrato no encontrado")
         
+        canon_mensual = contrato_data[2]
+        fecha_primer_pago = datetime.strptime(contrato_data[4], '%Y-%m-%d')  # FechaPrimerPago
+        
         # Obtener pagos del contrato
         cursor.execute("""
             SELECT FechaPago, Monto, Metodo
@@ -118,54 +122,99 @@ def generarReport(id: int):
             WHERE ContratoID = ? AND TipoPago = 'Arrendamiento'
         """, (id,))
         pagos_data = cursor.fetchall()
-        cursor.execute("""
-                       SELECT FechaPago,Monto FROM
-                       Pagos WHERE ContratoID =? AND TipoPago = 'Deposito De Garantia'
-                       """,(id,))
-        garantiaDeposito = cursor.fetchall()
-        GarantiaSum = sum(garantia[1] for garantia in garantiaDeposito)
-
-        # Crear una lista con los montos de los pagos formateados
-        canones_mensuales = [
-            {"CANON MES": f"{datetime.strptime(pago[0], '%Y-%m-%d').strftime('%B').upper()}/{datetime.strptime(pago[0], '%Y-%m-%d').strftime('%Y')}", "Cantidad": f"USD {pago[1]:,.2f}"}
-            for pago in pagos_data
-        ]
         
-        # Crear una lista con los depósitos efectuados formateados
-        depositos_efectuados = [
-            {"Fecha": pago[0], "MODALIDAD": pago[2].upper(), "Cantidad": f"USD {pago[1]:,.2f}"}
-            for pago in pagos_data
-        ]
+        cursor.execute("""
+            SELECT FechaPago, Monto 
+            FROM Pagos 
+            WHERE ContratoID =? AND TipoPago = 'Deposito De Garantia'
+        """, (id,))
+        garantia_deposito = cursor.fetchall()
+        
+        garantia_sum = sum(garantia[1] for garantia in garantia_deposito)
 
-        # Calcular los totales
+        # Lógica de los pagos
+        canones_mensuales = []
+        depositos_efectuados = []
+        total_depositado = 0
+        fecha_actual = fecha_primer_pago
+        
+        for pago in pagos_data:
+            fecha_pago, monto_pago, metodo_pago = pago
+            
+            while monto_pago >= canon_mensual:
+                canones_mensuales.append({
+                    "CANON MES": f"{fecha_actual.strftime('%B').upper()}/{fecha_actual.strftime('%Y')}",
+                    "Cantidad": f"USD {canon_mensual:,.2f}"
+                })
+                monto_pago -= canon_mensual
+                
+                # Formatear la fecha de pago al formato Latam
+                fecha_pago_formateada = datetime.strptime(fecha_pago, '%Y-%m-%d').strftime('%d/%m/%Y')
+                
+                if len(depositos_efectuados) == 0 or depositos_efectuados[-1]["Fecha"] != fecha_pago_formateada:
+                    depositos_efectuados.append({
+                        "Fecha": fecha_pago_formateada,  # Fecha formateada
+                        "MODALIDAD": metodo_pago.upper(),
+                        "Cantidad": f"USD {pago[1]:,.2f}"
+                    })
+                    total_depositado += pago[1]
+                
+                fecha_actual = fecha_actual.replace(day=1) + timedelta(days=32)
+                fecha_actual = fecha_actual.replace(day=1)
+                    
+            if monto_pago > 0:
+                canones_mensuales.append({
+                    "CANON MES": f"{fecha_actual.strftime('%B').upper()}/{fecha_actual.strftime('%Y')}",
+                    "Cantidad": f"USD {monto_pago:,.2f}"
+                })
+
         total_contrato = f"USD {sum(pago[1] for pago in pagos_data):,.2f}"
-        total_depositado = f"USD {sum(pago[1] for pago in pagos_data):,.2f}"
-        fechaContrato = f"{contrato_data[0]} AL {contrato_data[1]}"
-        # Mapear datos del contrato a ContratoInquilino
+        total_depositado_formateado = f"USD {total_depositado:,.2f}"
+        
+        # Formatear las fechas del contrato al formato Latam
+        fecha_inicio_formateada = datetime.strptime(contrato_data[0], '%Y-%m-%d').strftime('%d/%m/%Y')
+        fecha_fin_formateada = datetime.strptime(contrato_data[1], '%Y-%m-%d').strftime('%d/%m/%Y')
+        fecha_contrato = f"{fecha_inicio_formateada} AL {fecha_fin_formateada}"
+
         contrato = ContratoInquilino(
             INQUILINO=f"{contrato_data[6]} {contrato_data[7]}",
             N_CONTACTO=contrato_data[8],
             CORREO=contrato_data[9],
-            INMUEBLE=str(contrato_data[10]),  # Ajusta esto según tu tabla de inmuebles
-            FECHA_CONTRATO=fechaContrato,
-            CANON=str(contrato_data[2]),
-            DEPOSITO_EN_GARANTIA=str(GarantiaSum),  # Ajusta esto según tu lógica
+            INMUEBLE=str(contrato_data[10]),  # Ajusta según tu lógica
+            FECHA_CONTRATO=fecha_contrato,  # Fecha del contrato formateada
+            CANON=str(canon_mensual),
+            DEPOSITO_EN_GARANTIA=str(garantia_sum),
             CANONES_MENSUALES=canones_mensuales,
             TOTAL_CONTRATO=total_contrato,
             DEPOSITOS_EFECTUADOS=depositos_efectuados,
-            TOTAL_DEPOSITADO=total_depositado
+            TOTAL_DEPOSITADO=total_depositado_formateado
         )
-        
-        # Llamar a la función generarExcel con el contrato
-        response = generarExcel(contrato)
-        
-        return response
-    
+
+        return contrato
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al consultar la base de datos: {str(e)}")
     finally:
         if conn:
             conn.close()
+    
+@router.post('/report-pays/{id}')
+def generarReporte(id: int):
+    contrato = obtener_datos_contrato_y_pagos(id)
+    # Generar el archivo Excel
+    response = generarExcel(contrato)
+    return response
+
+
+
+@router.get('/report-pays/{id}')
+def mostrarDatosContrato(id: int):
+    contrato = obtener_datos_contrato_y_pagos(id)
+    # Devolver los datos como JSON para el frontend
+    return contrato
+
+
+
 def generarExcel(contrato: ContratoInquilino):
     try:
         # Crear instancia de la clase de Excel

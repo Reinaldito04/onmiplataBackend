@@ -204,9 +204,10 @@ def renew_contract(contract: ContractRenew):
             SET FechaInicio = ?,
                 FechaFin = ?,
                 Monto = ?,
-                DuracionMeses = ?
+                DuracionMeses = ?,
+                FechaPrimerPago = ?
             WHERE ID = ?
-        """, (contract.FechaInicio, contract.FechaFin, contract.Monto, duracion_meses, contract.ID))
+        """, (contract.FechaInicio, contract.FechaFin, contract.Monto, duracion_meses,contract.FechaPago, contract.ID))
 
         cursor.execute(
             "DELETE FROM Comisiones WHERE IDContracto=?", (contract.ID,))
@@ -344,14 +345,18 @@ def get_contracts():
 
     contracts = []
     for row in result:
+        # Convertir las fechas al formato dd/mes/año
+        fecha_inicio = datetime.strptime(row[5], "%Y-%m-%d").strftime("%d/%m/%Y")
+        fecha_fin = datetime.strptime(row[6], "%Y-%m-%d").strftime("%d/%m/%Y")
+        
         contract = ContractDetails(
             ClienteNombre=row[0],
             ClienteApellido=row[1],
             PropietarioNombre=row[2],
             PropietarioApellido=row[3],
             InmuebleDireccion=row[4],
-            FechaInicio=row[5],
-            FechaFin=row[6],
+            FechaInicio=fecha_inicio,
+            FechaFin=fecha_fin,
             ContratoID=row[7],
             CedulaPropietario=row[8],
             CedulaCliente=row[9],
@@ -360,9 +365,6 @@ def get_contracts():
             Municipio=row[12],
             Telefono=row[13],
             InmuebleID=row[14]
-
-
-
         )
         contracts.append(contract)
 
