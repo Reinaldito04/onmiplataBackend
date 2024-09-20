@@ -1,3 +1,5 @@
+import sqlite3
+from datetime import datetime
 import logging
 from fastapi import APIRouter, HTTPException
 from db.db import create_connection
@@ -185,48 +187,83 @@ def cancelar_contract(ID: int):
         "message": "Contrato cancelado"
     }
 
-
 @router.put("/contract/renew")
-def renew_contract(contract: ContractRenew):
+def renew_contract(contract: ContractRenew ):
     try:
         conn = create_connection()
         cursor = conn.cursor()
-
+       
         # Calcula la duración en meses
         fecha_inicio = datetime.strptime(contract.FechaInicio, '%Y-%m-%d')
         fecha_fin = datetime.strptime(contract.FechaFin, '%Y-%m-%d')
-        duracion_meses = (fecha_fin.year - fecha_inicio.year) * \
-            12 + fecha_fin.month - fecha_inicio.month
+        duracion_meses = (fecha_fin.year - fecha_inicio.year) * 12 + fecha_fin.month - fecha_inicio.month
+        if contract.crear_nuevo:
+            # Obtener datos del contrato existente
+            cursor.execute("""
+                SELECT ClienteID, PropietarioID, InmuebleID, Comision
+                FROM Contratos
+                WHERE ID = ?
+            """, (contract.ID,))
+            result = cursor.fetchone()
 
-        # Ejemplo de sentencia UPDATE
-        cursor.execute("""
-            UPDATE Contratos
-            SET FechaInicio = ?,
-                FechaFin = ?,
-                Monto = ?,
-                DuracionMeses = ?,
-                FechaPrimerPago = ?
-            WHERE ID = ?
-        """, (contract.FechaInicio, contract.FechaFin, contract.Monto, duracion_meses,contract.FechaPago, contract.ID))
+            # Descomponer los resultados
+            ClientId = result[0]
+            PropietarioID = result[1]
+            inmuebleId = result[2]
+            comision = result[3]
 
-        cursor.execute(
-            "DELETE FROM Comisiones WHERE IDContracto=?", (contract.ID,))
+            # Marcar contrato actual como inactivo
+            cursor.execute("UPDATE Contratos SET Estado = 'Inactivo' WHERE ID = ?", (contract.ID,))
 
-        for fecha in contract.comisiones:
-            cursor.execute(
-                "INSERT INTO Comisiones (IDContracto, Fecha) VALUES (?, ?)",
-                (contract.ID, fecha)
-            )
+            # Crear nuevo contrato con los mismos datos del contrato anterior pero nuevas fechas
+            cursor.execute("""
+                INSERT INTO Contratos (FechaInicio, FechaFin, Monto, DuracionMeses, FechaPrimerPago, ClienteID, PropietarioID, InmuebleID, Comision, Estado)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (contract.FechaInicio, contract.FechaFin, contract.Monto, duracion_meses, contract.FechaPago,
+                  ClientId, PropietarioID, inmuebleId, comision, 'Activo'))
+
+            nuevo_contrato_id = cursor.lastrowid  # Obtener el ID del nuevo contrato
+
+            # Insertar nuevas comisiones asociadas al nuevo contrato
+            for fecha in contract.comisiones:
+                cursor.execute(
+                    "INSERT INTO Comisiones (IDContracto, Fecha) VALUES (?, ?)",
+                    (nuevo_contrato_id, fecha)
+                )
+
+            mensaje = "Nuevo contrato creado exitosamente"
+        else:
+            # Renovar contrato existente (actualizar el contrato actual)
+            cursor.execute("""
+                UPDATE Contratos
+                SET FechaInicio = ?,
+                    FechaFin = ?,
+                    Monto = ?,
+                    DuracionMeses = ?,
+                    FechaPrimerPago = ?
+                WHERE ID = ?
+            """, (contract.FechaInicio, contract.FechaFin, contract.Monto, duracion_meses, contract.FechaPago, contract.ID))
+
+            # Eliminar las comisiones existentes asociadas al contrato
+            cursor.execute("DELETE FROM Comisiones WHERE IDContracto = ?", (contract.ID,))
+
+            # Insertar nuevas comisiones
+            for fecha in contract.comisiones:
+                cursor.execute(
+                    "INSERT INTO Comisiones (IDContracto, Fecha) VALUES (?, ?)",
+                    (contract.ID, fecha)
+                )
+
+            mensaje = "Contrato renovado exitosamente"
 
         conn.commit()  # Guardar los cambios en la base de datos
         conn.close()
 
-        return {"message": "Contrato renovado exitosamente"}
+        return {"message": mensaje}
 
     except Exception as e:
-        print(f"Error al renovar el contrato: {e}")
-        raise HTTPException(
-            status_code=500, detail="Error al renovar el contrato")
+        print(f"Error al renovar o crear el contrato: {e}")
+        raise HTTPException(status_code=500, detail="Error al renovar o crear el contrato")
 
 
 @router.get("/contracts/Vencidos", response_model=List[ContractDetails])
@@ -346,9 +383,10 @@ def get_contracts():
     contracts = []
     for row in result:
         # Convertir las fechas al formato dd/mes/año
-        fecha_inicio = datetime.strptime(row[5], "%Y-%m-%d").strftime("%d/%m/%Y")
+        fecha_inicio = datetime.strptime(
+            row[5], "%Y-%m-%d").strftime("%d/%m/%Y")
         fecha_fin = datetime.strptime(row[6], "%Y-%m-%d").strftime("%d/%m/%Y")
-        
+
         contract = ContractDetails(
             ClienteNombre=row[0],
             ClienteApellido=row[1],

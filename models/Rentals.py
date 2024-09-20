@@ -58,7 +58,7 @@ class ContractRenew(BaseModel):
     Monto: float
     FechaPago : str
     comisiones : List [str]
-
+    crear_nuevo: bool
 class ReportData(BaseModel):
     fecha: str
     nombre: str
