@@ -209,6 +209,7 @@ def obtener_datos_contrato_y_pagos(id: int):
             conn.close()
 
 
+
         
 @router.post('/report-pays/{id}')
 def generarReporte(id: int):
