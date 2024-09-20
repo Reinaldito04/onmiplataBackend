@@ -85,8 +85,7 @@ def generarReportForYear(year: int = Query(..., description="Año para filtrar l
         conn.close()
         raise HTTPException(status_code=500, detail=str(e))
     
-    
-def obtener_datos_contrato_y_pagos(id: int):
+    def obtener_datos_contrato_y_pagos(id: int):
     conn = create_connection()
     cursor = conn.cursor()
 
@@ -133,21 +132,23 @@ def obtener_datos_contrato_y_pagos(id: int):
         garantia_sum = sum(garantia[1] for garantia in garantia_deposito)
 
         # Lógica de los pagos
-        canones_mensuales = []
+        canones_mensuales = {}
         depositos_efectuados = []
         total_depositado = 0
         fecha_actual = fecha_primer_pago
         
         for pago in pagos_data:
             fecha_pago, monto_pago, metodo_pago = pago
-            
+            mes_anio = fecha_actual.strftime('%B').upper() + "/" + fecha_actual.strftime('%Y')  # Agrupar por mes y año
+
             while monto_pago >= canon_mensual:
-                canones_mensuales.append({
-                    "CANON MES": f"{fecha_actual.strftime('%B').upper()}/{fecha_actual.strftime('%Y')}",
-                    "Cantidad": f"USD {canon_mensual:,.2f}"
-                })
-                monto_pago -= canon_mensual
+                if mes_anio in canones_mensuales:
+                    canones_mensuales[mes_anio] += canon_mensual
+                else:
+                    canones_mensuales[mes_anio] = canon_mensual
                 
+                monto_pago -= canon_mensual
+
                 # Formatear la fecha de pago al formato Latam
                 fecha_pago_formateada = datetime.strptime(fecha_pago, '%Y-%m-%d').strftime('%d/%m/%Y')
                 
@@ -158,15 +159,20 @@ def obtener_datos_contrato_y_pagos(id: int):
                         "Cantidad": f"USD {pago[1]:,.2f}"
                     })
                     total_depositado += pago[1]
-                
+
+                # Actualizar el mes siguiente
                 fecha_actual = fecha_actual.replace(day=1) + timedelta(days=32)
                 fecha_actual = fecha_actual.replace(day=1)
-                    
+                mes_anio = fecha_actual.strftime('%B').upper() + "/" + fecha_actual.strftime('%Y')  # Actualizar agrupación de mes y año
+            
             if monto_pago > 0:
-                canones_mensuales.append({
-                    "CANON MES": f"{fecha_actual.strftime('%B').upper()}/{fecha_actual.strftime('%Y')}",
-                    "Cantidad": f"USD {monto_pago:,.2f}"
-                })
+                if mes_anio in canones_mensuales:
+                    canones_mensuales[mes_anio] += monto_pago
+                else:
+                    canones_mensuales[mes_anio] = monto_pago
+
+        # Convertir canones_mensuales en una lista para retornar el formato adecuado
+        canones_mensuales_list = [{"CANON MES": mes, "Cantidad": f"USD {monto:,.2f}"} for mes, monto in canones_mensuales.items()]
 
         total_contrato = f"USD {sum(pago[1] for pago in pagos_data):,.2f}"
         total_depositado_formateado = f"USD {total_depositado:,.2f}"
@@ -184,7 +190,7 @@ def obtener_datos_contrato_y_pagos(id: int):
             FECHA_CONTRATO=fecha_contrato,  # Fecha del contrato formateada
             CANON=str(canon_mensual),
             DEPOSITO_EN_GARANTIA=str(garantia_sum),
-            CANONES_MENSUALES=canones_mensuales,
+            CANONES_MENSUALES=canones_mensuales_list,
             TOTAL_CONTRATO=total_contrato,
             DEPOSITOS_EFECTUADOS=depositos_efectuados,
             TOTAL_DEPOSITADO=total_depositado_formateado
@@ -197,6 +203,7 @@ def obtener_datos_contrato_y_pagos(id: int):
     finally:
         if conn:
             conn.close()
+
     
 @router.post('/report-pays/{id}')
 def generarReporte(id: int):
