@@ -142,12 +142,11 @@ def obtener_datos_contrato_y_pagos(id: int):
         for pago in pagos_data:
             fecha_pago, monto_pago, metodo_pago = pago
             monto_pago += saldo_excedente  # Agregar el saldo del mes anterior
-            mes_anio = fecha_actual.strftime('%B').upper() + "/" + fecha_actual.strftime('%Y')  # Mes y año actual
-            
+
             # Mientras el monto del pago sea mayor o igual al canon mensual
             while monto_pago >= canon_mensual:
                 canones_mensuales.append({
-                    "CANON MES": mes_anio,
+                    "CANON MES": f"{fecha_actual.strftime('%B').upper()}/{fecha_actual.strftime('%Y')}",
                     "Cantidad": f"USD {canon_mensual:,.2f}"
                 })
                 monto_pago -= canon_mensual
@@ -155,12 +154,11 @@ def obtener_datos_contrato_y_pagos(id: int):
                 # Avanzar al siguiente mes
                 fecha_actual = fecha_actual.replace(day=1) + timedelta(days=32)
                 fecha_actual = fecha_actual.replace(day=1)
-                mes_anio = fecha_actual.strftime('%B').upper() + "/" + fecha_actual.strftime('%Y')
 
-            # Si el monto no cubre un canon completo, se registra el saldo restante
+            # Si el monto no cubre un canon completo, se registra el saldo restante para el próximo mes
             if monto_pago > 0:
                 canones_mensuales.append({
-                    "CANON MES": mes_anio,
+                    "CANON MES": f"{fecha_actual.strftime('%B').upper()}/{fecha_actual.strftime('%Y')}",
                     "Cantidad": f"USD {monto_pago:,.2f}"
                 })
                 saldo_excedente = 0  # Se usa todo el saldo disponible
@@ -207,6 +205,7 @@ def obtener_datos_contrato_y_pagos(id: int):
     finally:
         if conn:
             conn.close()
+
 
 
 
