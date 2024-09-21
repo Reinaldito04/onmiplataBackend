@@ -96,8 +96,16 @@ async def get_inquilinos():
     # Convertir los resultados a una lista de diccionarios
     clients_list = []
     for client in clients:
-        date_obj = datetime.strptime(client[5], '%Y-%m-%d')
-        formatted_date = date_obj.strftime('%d/%m/%Y')
+        if client[5]:
+            try:
+                date_obj = datetime.strptime(client[5], '%Y-%m-%d')
+                formatted_date = date_obj.strftime('%d/%m/%Y')
+            except ValueError:
+                formatted_date = 'Fecha Invalida'
+        else:
+            formatted_date = 'Fecha no Disponible'
+            
+                
         client_dict = {
             "id": client[0],
             "name": client[1],

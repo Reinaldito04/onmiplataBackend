@@ -10,6 +10,7 @@ from reports.Notificacionvehicular import generar_reporte as generarNotificacion
 from reports.PagosContrato import ContratoInquilinoExcel
 from datetime import datetime
 import calendar
+from dateutil.relativedelta import relativedelta
 from reports.PagosReport import PagosExcel
 import locale
 
@@ -86,6 +87,7 @@ def generarReportForYear(year: int = Query(..., description="Año para filtrar l
         raise HTTPException(status_code=500, detail=str(e))
     
     
+
 def obtener_datos_contrato_y_pagos(id: int):
     conn = create_connection()
     cursor = conn.cursor()
@@ -108,13 +110,13 @@ def obtener_datos_contrato_y_pagos(id: int):
                 c.ID = ?
         """, (id,))
         contrato_data = cursor.fetchone()
-        
+
         if contrato_data is None:
             raise HTTPException(status_code=404, detail="Contrato no encontrado")
-        
+
         canon_mensual = contrato_data[2]
-        fecha_primer_pago = datetime.strptime(contrato_data[4], '%Y-%m-%d')  # FechaPrimerPago
-        
+        fecha_primer_pago = datetime.strptime(contrato_data[4], '%Y-%m-%d')  # Fecha del primer pago
+
         # Obtener pagos del contrato
         cursor.execute("""
             SELECT FechaPago, Monto, Metodo
@@ -122,81 +124,76 @@ def obtener_datos_contrato_y_pagos(id: int):
             WHERE ContratoID = ? AND TipoPago = 'Arrendamiento'
         """, (id,))
         pagos_data = cursor.fetchall()
-        
+
+        # Obtener el total del depósito de garantía
         cursor.execute("""
-            SELECT FechaPago, Monto 
+            SELECT SUM(Monto) 
             FROM Pagos 
             WHERE ContratoID =? AND TipoPago = 'Deposito De Garantia'
         """, (id,))
-        garantia_deposito = cursor.fetchall()
-        
-        garantia_sum = sum(garantia[1] for garantia in garantia_deposito)
+        garantia_sum = cursor.fetchone()[0] or 0  # Sumar los montos, manejar nulo
 
-        # Lógica de los pagos
+        # Inicializar variables
         canones_mensuales = []
         depositos_efectuados = []
         total_depositado = 0
         fecha_actual = fecha_primer_pago
-        saldo_excedente = 0  # Saldo excedente para aplicar al siguiente mes
-        
-        for pago in pagos_data:
-            fecha_pago, monto_pago, metodo_pago = pago
-            monto_pago += saldo_excedente  # Agregar el saldo del mes anterior
+        saldo_excedente = 0
 
-            # Mientras el monto del pago sea mayor o igual al canon mensual
+        for fecha_pago, monto_pago, metodo_pago in pagos_data:
+            # Formatear la fecha de pago
+            fecha_pago_formateada = datetime.strptime(fecha_pago, '%Y-%m-%d').strftime('%d/%m/%Y')
+            depositos_efectuados.append({
+                "Fecha": fecha_pago_formateada,
+                "MODALIDAD": metodo_pago.upper(),
+                "Cantidad": f"USD {monto_pago:,.2f}"
+            })
+            total_depositado += monto_pago
+            
+            # Agregar saldo excedente
+            monto_pago += saldo_excedente
+
+            # Procesar canones mensuales
             while monto_pago >= canon_mensual:
                 canones_mensuales.append({
                     "CANON MES": f"{fecha_actual.strftime('%B').upper()}/{fecha_actual.strftime('%Y')}",
                     "Cantidad": f"USD {canon_mensual:,.2f}"
                 })
                 monto_pago -= canon_mensual
-                
-                # Avanzar al siguiente mes
-                fecha_actual = fecha_actual.replace(day=1) + timedelta(days=32)
-                fecha_actual = fecha_actual.replace(day=1)
+                fecha_actual += relativedelta(months=1)
 
-            # Si el monto no cubre un canon completo, se registra el saldo restante para el próximo mes
-            if monto_pago > 0:
-                canones_mensuales.append({
-                    "CANON MES": f"{fecha_actual.strftime('%B').upper()}/{fecha_actual.strftime('%Y')}",
-                    "Cantidad": f"USD {monto_pago:,.2f}"
-                })
-                saldo_excedente = 0  # Se usa todo el saldo disponible
-            else:
-                saldo_excedente = monto_pago  # Guardar el saldo restante para el próximo mes
+            # Guardar saldo para el siguiente mes
+            saldo_excedente = monto_pago
 
-            # Formatear la fecha de pago al formato Latam
-            fecha_pago_formateada = datetime.strptime(fecha_pago, '%Y-%m-%d').strftime('%d/%m/%Y')
-            
-            if len(depositos_efectuados) == 0 or depositos_efectuados[-1]["Fecha"] != fecha_pago_formateada:
-                depositos_efectuados.append({
-                    "Fecha": fecha_pago_formateada,  # Fecha formateada
-                    "MODALIDAD": metodo_pago.upper(),
-                    "Cantidad": f"USD {pago[1]:,.2f}"
-                })
-                total_depositado += pago[1]
+        # Registrar saldo restante como canon mensual si existe
+        if saldo_excedente > 0:
+            canones_mensuales.append({
+                "CANON MES": f"{fecha_actual.strftime('%B').upper()}/{fecha_actual.strftime('%Y')}",
+                "Cantidad": f"USD {saldo_excedente:,.2f}"
+            })
 
+        # Formatear total de contrato
         total_contrato = f"USD {sum(pago[1] for pago in pagos_data):,.2f}"
         total_depositado_formateado = f"USD {total_depositado:,.2f}"
         
-        # Formatear las fechas del contrato al formato Latam
+        # Formatear fechas del contrato al formato Latam
         fecha_inicio_formateada = datetime.strptime(contrato_data[0], '%Y-%m-%d').strftime('%d/%m/%Y')
         fecha_fin_formateada = datetime.strptime(contrato_data[1], '%Y-%m-%d').strftime('%d/%m/%Y')
         fecha_contrato = f"{fecha_inicio_formateada} AL {fecha_fin_formateada}"
 
-        contrato = ContratoInquilino(
-            INQUILINO=f"{contrato_data[6]} {contrato_data[7]}",
-            N_CONTACTO=contrato_data[8],
-            CORREO=contrato_data[9],
-            INMUEBLE=str(contrato_data[10]),  # Ajusta según tu lógica
-            FECHA_CONTRATO=fecha_contrato,  # Fecha del contrato formateada
-            CANON=str(canon_mensual),
-            DEPOSITO_EN_GARANTIA=str(garantia_sum),
-            CANONES_MENSUALES=canones_mensuales,
-            TOTAL_CONTRATO=total_contrato,
-            DEPOSITOS_EFECTUADOS=depositos_efectuados,
-            TOTAL_DEPOSITADO=total_depositado_formateado
-        )
+        contrato = {
+            "INQUILINO": f"{contrato_data[6]} {contrato_data[7]}",
+            "N_CONTACTO": contrato_data[8],
+            "CORREO": contrato_data[9],
+            "INMUEBLE": contrato_data[10],
+            "FECHA_CONTRATO": fecha_contrato,
+            "CANON": f"USD {canon_mensual:,.2f}",
+            "DEPOSITO_EN_GARANTIA": f"USD {garantia_sum:,.2f}",
+            "CANONES_MENSUALES": canones_mensuales,
+            "TOTAL_CONTRATO": total_contrato,
+            "DEPOSITOS_EFECTUADOS": depositos_efectuados,
+            "TOTAL_DEPOSITADO": total_depositado_formateado
+        }
 
         return contrato
 
@@ -205,11 +202,6 @@ def obtener_datos_contrato_y_pagos(id: int):
     finally:
         if conn:
             conn.close()
-
-
-
-
-        
 @router.post('/report-pays/{id}')
 def generarReporte(id: int):
     contrato = obtener_datos_contrato_y_pagos(id)
