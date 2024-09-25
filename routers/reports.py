@@ -111,11 +111,12 @@ def obtener_datos_contrato_y_pagos(id: int):
         """, (id,))
         contrato_data = cursor.fetchone()
 
-        if contrato_data is None:
+        if contrato_data == None:
             raise HTTPException(status_code=404, detail="Contrato no encontrado")
 
         canon_mensual = contrato_data[2]
         fecha_primer_pago = datetime.strptime(contrato_data[4], '%Y-%m-%d')  # Fecha del primer pago
+        fecha_fin = datetime.strptime(contrato_data[1], '%Y-%m-%d')  # Fecha de finalización
 
         # Obtener pagos del contrato
         cursor.execute("""
@@ -169,8 +170,17 @@ def obtener_datos_contrato_y_pagos(id: int):
         if saldo_excedente > 0:
             canones_mensuales.append({
                 "CANON MES": f"{fecha_actual.strftime('%B').upper()}/{fecha_actual.strftime('%Y')}",
-                "Cantidad": f"USD {saldo_excedente:,.2f}"
+                "Cantidad": f"USD {saldo_excedente:,.2f} DEBE ( {canon_mensual  - saldo_excedente:,.2f} USD   )"
             })
+            fecha_actual += relativedelta(months=1)
+
+        # Registrar los meses restantes como "PENDIENTE"
+        while fecha_actual <= fecha_fin:
+            canones_mensuales.append({
+                "CANON MES": f"{fecha_actual.strftime('%B').upper()}/{fecha_actual.strftime('%Y')}",
+                "Cantidad": "PENDIENTE"
+            })
+            fecha_actual += relativedelta(months=1)
 
         # Formatear total de contrato
         total_contrato = f"USD {sum(pago[1] for pago in pagos_data):,.2f}"
@@ -202,6 +212,7 @@ def obtener_datos_contrato_y_pagos(id: int):
     finally:
         if conn:
             conn.close()
+
 @router.post('/report-pays/{id}')
 def generarReporte(id: int):
     contrato = obtener_datos_contrato_y_pagos(id)

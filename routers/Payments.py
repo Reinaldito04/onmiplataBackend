@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query,Body
 from db.db import create_connection
 from models.Payments import DetailsPagos, Pagos, NextPayment, GestionPago
 from typing import List
@@ -454,6 +454,17 @@ def get_pending_payments():
 
     finally:
         conn.close()
+@router.put('/updatePay/{id}')
+def update_pay(id: int, Date: str = Body(...)):  # Cambia aquí para que Date provenga del cuerpo
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE Pagos SET FechaPago = ? WHERE ID = ?", (Date, id))
+        conn.commit()
+        conn.close()
+        return {"message": "Fecha de pago actualizada exitosamente"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 @router.post("/PayRental")
 def pay_rental(pagos: Pagos):
     
