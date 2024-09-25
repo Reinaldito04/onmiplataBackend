@@ -73,18 +73,6 @@ def obtener_comisiones_mes_actual():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/contract-activar/{id}")
-async def activar_contract(id: int):
-    try:
-        conn = create_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE Contratos SET Estado = 'Activo' WHERE Estado = 'Inactivo' AND ID=?", (id,))
-        conn.commit()
-        conn.close()
-        return {"message": "Contrato activado exitosamente"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/contract-desactivar/{id}")
 async def desactivar_contract(id: int):

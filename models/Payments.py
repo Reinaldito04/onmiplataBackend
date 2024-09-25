@@ -9,6 +9,9 @@ class Pagos(BaseModel):
     TypePay: Optional[str] = Field(default="Arrendamiento")
     PaymentMethod: Optional[str]
     
+    
+class PaymentDateUpdate(BaseModel):
+    date: str
 
 class DetailsPagos(Pagos):
     Name: str

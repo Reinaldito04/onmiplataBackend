@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query,Body
 from db.db import create_connection
-from models.Payments import DetailsPagos, Pagos, NextPayment, GestionPago
+from models.Payments import DetailsPagos, Pagos, NextPayment, GestionPago,PaymentDateUpdate
 from typing import List
 from datetime import datetime, timedelta
 router = APIRouter()
@@ -454,17 +454,20 @@ def get_pending_payments():
 
     finally:
         conn.close()
-@router.put('/updatePay/{id}')
-def update_pay(id: int, Date: str = Body(...)):  # Cambia aquí para que Date provenga del cuerpo
+
+@router.put('/paymentEditDate/{id}')
+async def editFecha(id: int, payload: PaymentDateUpdate):  # id en la URL
     try:
         conn = create_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE Pagos SET FechaPago = ? WHERE ID = ?", (Date, id))
+        cursor.execute("UPDATE Pagos SET FechaPago = ? WHERE ID = ?", (payload.date, id))  # usa el id de la URL
         conn.commit()
-        conn.close()
-        return {"message": "Fecha de pago actualizada exitosamente"}
+        return {"message": "Fecha de pago actualizada correctamente"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 @router.post("/PayRental")
 def pay_rental(pagos: Pagos):
     
