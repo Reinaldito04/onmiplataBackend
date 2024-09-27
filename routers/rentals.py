@@ -73,7 +73,6 @@ def obtener_comisiones_mes_actual():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
 @router.put("/contract-desactivar/{id}")
 async def desactivar_contract(id: int):
     try:
@@ -188,16 +187,18 @@ def cancelar_contract(ID: int):
         "message": "Contrato cancelado"
     }
 
+
 @router.put("/contract/renew")
-def renew_contract(contract: ContractRenew ):
+def renew_contract(contract: ContractRenew):
     try:
         conn = create_connection()
         cursor = conn.cursor()
-       
+
         # Calcula la duración en meses
         fecha_inicio = datetime.strptime(contract.FechaInicio, '%Y-%m-%d')
         fecha_fin = datetime.strptime(contract.FechaFin, '%Y-%m-%d')
         duracion_meses = (fecha_fin.year - fecha_inicio.year) * 12 + fecha_fin.month - fecha_inicio.month
+
         if contract.crear_nuevo:
             # Obtener datos del contrato existente
             cursor.execute("""
@@ -224,6 +225,27 @@ def renew_contract(contract: ContractRenew ):
                   ClientId, PropietarioID, inmuebleId, comision, 'Activo'))
 
             nuevo_contrato_id = cursor.lastrowid  # Obtener el ID del nuevo contrato
+
+            # Obtener pagos de garantía del contrato anterior
+            cursor.execute("""
+                SELECT ID
+                FROM Pagos
+                WHERE ContratoID = ? AND TipoPago = 'Deposito De Garantia'
+            """, (contract.ID,))
+            pagos_garantia = cursor.fetchall()
+
+            # Actualizar el ID del contrato en los pagos de garantía
+            if pagos_garantia:
+                for pago in pagos_garantia:
+                    pago_id = pago[0]
+                    cursor.execute("""
+                        UPDATE Pagos
+                        SET ContratoID = ?
+                        WHERE ID = ?
+                    """, (nuevo_contrato_id, pago_id))
+
+            # Ahora eliminar los pagos del contrato anterior (solo después de actualizar)
+            
 
             # Insertar nuevas comisiones asociadas al nuevo contrato
             for fecha in contract.comisiones:
@@ -329,16 +351,85 @@ def get_contracts():
             Monto=row[11],
             Municipio=row[12],
             Telefono=row[13],
-            InmuebleID=row[14]
-
-
-
+            InmuebleID=row[14],
+            Estado='Inactivo'
         )
         contracts.append(contract)
 
     conn.close()
     return contracts
 
+
+
+@router.get('/contracts/getUser/{id}', response_model=List[ContractDetails])
+def get_contractsByUser(id: int):  # Recibe el ID del inquilino como parámetro
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    cursor.execute( """
+    SELECT 
+        Clientes.Nombre AS ClienteNombre,
+        Clientes.Apellido AS ClienteApellido,
+        Propietarios.Nombre AS PropietarioNombre,
+        Propietarios.Apellido AS PropietarioApellido,
+        Inmuebles.Direccion AS InmuebleDireccion,
+        Contratos.FechaInicio,
+        Contratos.FechaFin,
+        Contratos.ID,
+        Propietarios.DNI AS PropietarioDNI,
+        Clientes.DNI AS ClienteDNI,
+        Contratos.DuracionMeses,
+        Contratos.Monto,
+        Inmuebles.Municipio,
+        Clientes.Telefono,
+        Inmuebles.ID,
+        Contratos.Estado
+        
+    FROM 
+        Contratos
+    INNER JOIN 
+        Clientes ON Contratos.ClienteID = Clientes.ID
+    INNER JOIN 
+        Propietarios ON Contratos.PropietarioID = Propietarios.ID
+    INNER JOIN 
+        Inmuebles ON Contratos.InmuebleID = Inmuebles.ID
+    WHERE 
+        Clientes.ID = ?  -- Filtra por el ID del cliente
+    """,
+        (id,))
+    result = cursor.fetchall()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="No contracts found")
+
+    contracts = []
+    for row in result:
+        # Convertir las fechas al formato dd/mes/año
+        fecha_inicio = datetime.strptime(row[5], "%Y-%m-%d").strftime("%d/%m/%Y")
+        fecha_fin = datetime.strptime(row[6], "%Y-%m-%d").strftime("%d/%m/%Y")
+
+        contract = ContractDetails(
+            ClienteNombre=row[0],
+            ClienteApellido=row[1],
+            PropietarioNombre=row[2],
+            PropietarioApellido=row[3],
+            InmuebleDireccion=row[4],
+            FechaInicio=fecha_inicio,
+            FechaFin=fecha_fin,
+            ContratoID=row[7],
+            CedulaPropietario=row[8],
+            CedulaCliente=row[9],
+            DuracionMeses=row[10],
+            Monto=row[11],
+            Municipio=row[12],
+            Telefono=row[13],
+            InmuebleID=row[14],
+            Estado=row[15]
+        )
+        contracts.append(contract)
+
+    conn.close()
+    return contracts
 
 @router.get("/contracts", response_model=List[ContractDetails])
 def get_contracts():
@@ -361,7 +452,8 @@ def get_contracts():
         Contratos.Monto,
         Inmuebles.Municipio,
         Clientes.Telefono,
-        Inmuebles.ID
+        Inmuebles.ID,
+        Contratos.Estado
         
     FROM 
         Contratos
@@ -403,7 +495,8 @@ def get_contracts():
             Monto=row[11],
             Municipio=row[12],
             Telefono=row[13],
-            InmuebleID=row[14]
+            InmuebleID=row[14],
+            Estado=row[15]
         )
         contracts.append(contract)
 

@@ -49,6 +49,7 @@ class ContractDetails(BaseModel):
     Municipio: str
     Telefono: Optional[str]
     InmuebleID: Optional[int]
+    Estado : Optional [str]
 
 
 class ContractRenew(BaseModel):
