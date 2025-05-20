@@ -138,7 +138,7 @@ def obtener_datos_contrato_y_pagos(id: int):
         canones_mensuales = []
         depositos_efectuados = []
         total_depositado = 0
-        fecha_actual = fecha_primer_pago
+        fecha_actual = datetime.strptime(contrato_data[0], '%Y-%m-%d')  # FechaInicio del contrato
         saldo_excedente = 0
 
         for fecha_pago, monto_pago, metodo_pago in pagos_data:
@@ -167,12 +167,12 @@ def obtener_datos_contrato_y_pagos(id: int):
             saldo_excedente = monto_pago
 
         # Registrar saldo restante como canon mensual si existe
-        if saldo_excedente > 0:
+        if saldo_excedente > 0 and fecha_actual <= fecha_fin:
             canones_mensuales.append({
                 "CANON MES": f"{fecha_actual.strftime('%B').upper()}/{fecha_actual.strftime('%Y')}",
-                "Cantidad": f"USD {saldo_excedente:,.2f} DEBE ( {canon_mensual  - saldo_excedente:,.2f} USD   )"
+                "Cantidad": f"USD {saldo_excedente:,.2f} DEBE ( {canon_mensual - saldo_excedente:,.2f} USD )"
             })
-            fecha_actual += relativedelta(months=1)
+
 
         # Registrar los meses restantes como "PENDIENTE"
         while fecha_actual <= fecha_fin:
