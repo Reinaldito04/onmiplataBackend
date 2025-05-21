@@ -4,7 +4,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from db.db import create_connection
 from pydantic import BaseModel
-from models.Rentals import Rentals, ContractDetails, ReportData, notificacionInquilino, ReporteNotificacion, ContractRenew
+from models.Rentals import Rentals, ContractDetails, ReportData, notificacionInquilino, ReporteNotificacion, ContractRenew,ContractEdit
 from typing import List
 from datetime import datetime, timedelta
 from reports.Contrato import generar_reporte
@@ -186,6 +186,23 @@ def cancelar_contract(ID: int):
     return {
         "message": "Contrato cancelado"
     }
+
+@router.put('/contract/{ID}')
+def edit_contract(ID: int, contract: ContractEdit):
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    # Actualiza el contrato en la base de datos
+    cursor.execute("""
+        UPDATE Contratos
+        SET FechaInicio = ?, FechaFin = ?, Monto = ?
+        WHERE ID = ?
+    """, (contract.FechaInicio, contract.FechaFin, contract.Monto, ID))
+
+    conn.commit()
+    conn.close()
+
+    return {"message": "Contrato actualizado exitosamente"}
 
 
 @router.put("/contract/renew")

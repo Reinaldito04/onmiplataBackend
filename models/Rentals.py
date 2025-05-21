@@ -52,6 +52,12 @@ class ContractDetails(BaseModel):
     Estado : Optional [str]
 
 
+class ContractEdit(BaseModel):
+    FechaInicio: str
+    FechaFin: str
+    Monto: float
+
+
 class ContractRenew(BaseModel):
     ID: int
     FechaInicio: str
